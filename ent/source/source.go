@@ -54,8 +54,13 @@ var ForeignKeys = []string{
 	"source_children",
 }
 
+var ()
+
 // Language defines the type for the language enum field.
 type Language string
+
+// LanguageRu is the default Language.
+const DefaultLanguage = LanguageRu
 
 // Language values.
 const (

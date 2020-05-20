@@ -14,3 +14,6 @@ type Source func(*sql.Selector)
 
 // User is the predicate function for user builders.
 type User func(*sql.Selector)
+
+// UserSettings is the predicate function for usersettings builders.
+type UserSettings func(*sql.Selector)

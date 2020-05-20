@@ -45,7 +45,7 @@ var (
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "url", Type: field.TypeString, Unique: true},
 		{Name: "title", Type: field.TypeString},
-		{Name: "language", Type: field.TypeEnum, Enums: []string{"ru", "en"}},
+		{Name: "language", Type: field.TypeEnum, Enums: []string{"ru", "en"}, Default: "ru"},
 		{Name: "source_children", Type: field.TypeInt, Nullable: true},
 	}
 	// SourcesTable holds the schema information for the "sources" table.
@@ -77,15 +77,42 @@ var (
 		PrimaryKey:  []*schema.Column{UsersColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{},
 	}
+	// UserSettingsColumns holds the columns for the "user_settings" table.
+	UserSettingsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "urgent_words", Type: field.TypeJSON, Nullable: true},
+		{Name: "banned_words", Type: field.TypeJSON, Nullable: true},
+		{Name: "language", Type: field.TypeEnum, Enums: []string{"ru", "en"}, Default: "ru"},
+		{Name: "sending_frequency", Type: field.TypeEnum, Enums: []string{"instant", "1h", "4h", "am", "pm", "mon", "tue", "wed", "thu", "fri", "sat", "sun"}, Default: "instant"},
+		{Name: "last_sending", Type: field.TypeTime, Nullable: true},
+		{Name: "user_settings", Type: field.TypeInt, Unique: true, Nullable: true},
+	}
+	// UserSettingsTable holds the schema information for the "user_settings" table.
+	UserSettingsTable = &schema.Table{
+		Name:       "user_settings",
+		Columns:    UserSettingsColumns,
+		PrimaryKey: []*schema.Column{UserSettingsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:  "user_settings_users_settings",
+				Columns: []*schema.Column{UserSettingsColumns[6]},
+
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		PostsTable,
 		SourcesTable,
 		UsersTable,
+		UserSettingsTable,
 	}
 )
 
 func init() {
 	PostsTable.ForeignKeys[0].RefTable = SourcesTable
 	SourcesTable.ForeignKeys[0].RefTable = SourcesTable
+	UserSettingsTable.ForeignKeys[0].RefTable = UsersTable
 }

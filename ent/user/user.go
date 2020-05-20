@@ -11,8 +11,18 @@ const (
 	FieldTgID        = "tg_id" // FieldPaymentInfo holds the string denoting the payment_info vertex property in the database.
 	FieldPaymentInfo = "payment_info"
 
+	// EdgeSettings holds the string denoting the settings edge name in mutations.
+	EdgeSettings = "settings"
+
 	// Table holds the table name of the user in the database.
 	Table = "users"
+	// SettingsTable is the table the holds the settings relation/edge.
+	SettingsTable = "user_settings"
+	// SettingsInverseTable is the table name for the UserSettings entity.
+	// It exists in this package in order to avoid circular dependency with the "usersettings" package.
+	SettingsInverseTable = "user_settings"
+	// SettingsColumn is the table column denoting the settings relation/edge.
+	SettingsColumn = "user_settings"
 )
 
 // Columns holds all SQL columns for user fields.

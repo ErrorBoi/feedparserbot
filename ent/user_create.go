@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/ErrorBoi/feedparserbot/ent/user"
+	"github.com/ErrorBoi/feedparserbot/ent/usersettings"
 	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
 	"github.com/facebookincubator/ent/schema/field"
 )
@@ -51,6 +52,25 @@ func (uc *UserCreate) SetNillablePaymentInfo(s *string) *UserCreate {
 		uc.SetPaymentInfo(*s)
 	}
 	return uc
+}
+
+// SetSettingsID sets the settings edge to UserSettings by id.
+func (uc *UserCreate) SetSettingsID(id int) *UserCreate {
+	uc.mutation.SetSettingsID(id)
+	return uc
+}
+
+// SetNillableSettingsID sets the settings edge to UserSettings by id if the given value is not nil.
+func (uc *UserCreate) SetNillableSettingsID(id *int) *UserCreate {
+	if id != nil {
+		uc = uc.SetSettingsID(*id)
+	}
+	return uc
+}
+
+// SetSettings sets the settings edge to UserSettings.
+func (uc *UserCreate) SetSettings(u *UserSettings) *UserCreate {
+	return uc.SetSettingsID(u.ID)
 }
 
 // Save creates the User in the database.
@@ -127,6 +147,25 @@ func (uc *UserCreate) sqlSave(ctx context.Context) (*User, error) {
 			Column: user.FieldPaymentInfo,
 		})
 		u.PaymentInfo = &value
+	}
+	if nodes := uc.mutation.SettingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   user.SettingsTable,
+			Columns: []string{user.SettingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: usersettings.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if err := sqlgraph.CreateNode(ctx, uc.driver, _spec); err != nil {
 		if cerr, ok := isSQLConstraintError(err); ok {

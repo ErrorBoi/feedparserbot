@@ -4,12 +4,14 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"math"
 
 	"github.com/ErrorBoi/feedparserbot/ent/predicate"
 	"github.com/ErrorBoi/feedparserbot/ent/user"
+	"github.com/ErrorBoi/feedparserbot/ent/usersettings"
 	"github.com/facebookincubator/ent/dialect/sql"
 	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
 	"github.com/facebookincubator/ent/schema/field"
@@ -23,6 +25,8 @@ type UserQuery struct {
 	order      []Order
 	unique     []string
 	predicates []predicate.User
+	// eager-loading edges.
+	withSettings *UserSettingsQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -50,6 +54,24 @@ func (uq *UserQuery) Offset(offset int) *UserQuery {
 func (uq *UserQuery) Order(o ...Order) *UserQuery {
 	uq.order = append(uq.order, o...)
 	return uq
+}
+
+// QuerySettings chains the current query on the settings edge.
+func (uq *UserQuery) QuerySettings() *UserSettingsQuery {
+	query := &UserSettingsQuery{config: uq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, uq.sqlQuery()),
+			sqlgraph.To(usersettings.Table, usersettings.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, user.SettingsTable, user.SettingsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
 }
 
 // First returns the first User entity in the query. Returns *NotFoundError when no user was found.
@@ -231,6 +253,17 @@ func (uq *UserQuery) Clone() *UserQuery {
 	}
 }
 
+//  WithSettings tells the query-builder to eager-loads the nodes that are connected to
+// the "settings" edge. The optional arguments used to configure the query builder of the edge.
+func (uq *UserQuery) WithSettings(opts ...func(*UserSettingsQuery)) *UserQuery {
+	query := &UserSettingsQuery{config: uq.config}
+	for _, opt := range opts {
+		opt(query)
+	}
+	uq.withSettings = query
+	return uq
+}
+
 // GroupBy used to group vertices by one or more fields/columns.
 // It is often used with aggregate functions, like: count, max, mean, min, sum.
 //
@@ -295,8 +328,11 @@ func (uq *UserQuery) prepareQuery(ctx context.Context) error {
 
 func (uq *UserQuery) sqlAll(ctx context.Context) ([]*User, error) {
 	var (
-		nodes = []*User{}
-		_spec = uq.querySpec()
+		nodes       = []*User{}
+		_spec       = uq.querySpec()
+		loadedTypes = [1]bool{
+			uq.withSettings != nil,
+		}
 	)
 	_spec.ScanValues = func() []interface{} {
 		node := &User{config: uq.config}
@@ -309,6 +345,7 @@ func (uq *UserQuery) sqlAll(ctx context.Context) ([]*User, error) {
 			return fmt.Errorf("ent: Assign called without calling ScanValues")
 		}
 		node := nodes[len(nodes)-1]
+		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(values...)
 	}
 	if err := sqlgraph.QueryNodes(ctx, uq.driver, _spec); err != nil {
@@ -317,6 +354,35 @@ func (uq *UserQuery) sqlAll(ctx context.Context) ([]*User, error) {
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+
+	if query := uq.withSettings; query != nil {
+		fks := make([]driver.Value, 0, len(nodes))
+		nodeids := make(map[int]*User)
+		for i := range nodes {
+			fks = append(fks, nodes[i].ID)
+			nodeids[nodes[i].ID] = nodes[i]
+		}
+		query.withFKs = true
+		query.Where(predicate.UserSettings(func(s *sql.Selector) {
+			s.Where(sql.InValues(user.SettingsColumn, fks...))
+		}))
+		neighbors, err := query.All(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, n := range neighbors {
+			fk := n.user_settings
+			if fk == nil {
+				return nil, fmt.Errorf(`foreign-key "user_settings" is nil for node %v`, n.ID)
+			}
+			node, ok := nodeids[*fk]
+			if !ok {
+				return nil, fmt.Errorf(`unexpected foreign-key "user_settings" returned %v for node %v`, *fk, n.ID)
+			}
+			node.Edges.Settings = n
+		}
+	}
+
 	return nodes, nil
 }
 

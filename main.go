@@ -10,6 +10,7 @@ import (
 
 	"github.com/ErrorBoi/feedparserbot/bot"
 	"github.com/ErrorBoi/feedparserbot/db"
+	"github.com/ErrorBoi/feedparserbot/scrap"
 )
 
 func main() {
@@ -47,6 +48,22 @@ func main() {
 	// run the auto migration tool.
 	if err := cli.Schema.Create(context.Background()); err != nil {
 		sugar.Fatalf("failed creating schema resources: %v", err)
+	}
+
+	doScrap, err := strconv.ParseBool(os.Getenv("SCRAP"))
+	if err != nil {
+		sugar.Errorf("Parse bool error: %v", err)
+	}
+
+	if doScrap {
+		err = scrap.Sources(cli)
+		if err != nil {
+			sugar.Errorf("Scrap sources error: %v", err)
+		}
+		err = scrap.VCHubs(cli)
+		if err != nil {
+			sugar.Errorf("Scrap VC hubs error: %v", err)
+		}
 	}
 
 	Fpbot, err := bot.InitBot(token, cli, sugar)

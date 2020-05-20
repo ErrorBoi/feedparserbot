@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/ErrorBoi/feedparserbot/ent/user"
+	"github.com/ErrorBoi/feedparserbot/ent/usersettings"
 	"github.com/facebookincubator/ent/dialect/sql"
 )
 
@@ -21,6 +22,32 @@ type User struct {
 	TgID int `json:"tg_id,omitempty"`
 	// PaymentInfo holds the value of the "payment_info" field.
 	PaymentInfo *string `json:"payment_info,omitempty"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the UserQuery when eager-loading is set.
+	Edges UserEdges `json:"edges"`
+}
+
+// UserEdges holds the relations/edges for other nodes in the graph.
+type UserEdges struct {
+	// Settings holds the value of the settings edge.
+	Settings *UserSettings
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [1]bool
+}
+
+// SettingsOrErr returns the Settings value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e UserEdges) SettingsOrErr() (*UserSettings, error) {
+	if e.loadedTypes[0] {
+		if e.Settings == nil {
+			// The edge settings was loaded in eager-loading,
+			// but was not found.
+			return nil, &NotFoundError{label: usersettings.Label}
+		}
+		return e.Settings, nil
+	}
+	return nil, &NotLoadedError{edge: "settings"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -63,6 +90,11 @@ func (u *User) assignValues(values ...interface{}) error {
 		*u.PaymentInfo = value.String
 	}
 	return nil
+}
+
+// QuerySettings queries the settings edge of the User.
+func (u *User) QuerySettings() *UserSettingsQuery {
+	return (&UserClient{config: u.config}).QuerySettings(u)
 }
 
 // Update returns a builder for updating this User.

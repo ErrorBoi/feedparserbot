@@ -8,6 +8,7 @@ import (
 
 	"github.com/ErrorBoi/feedparserbot/ent/predicate"
 	"github.com/ErrorBoi/feedparserbot/ent/user"
+	"github.com/ErrorBoi/feedparserbot/ent/usersettings"
 	"github.com/facebookincubator/ent/dialect/sql"
 	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
 	"github.com/facebookincubator/ent/schema/field"
@@ -80,8 +81,34 @@ func (uu *UserUpdate) ClearPaymentInfo() *UserUpdate {
 	return uu
 }
 
+// SetSettingsID sets the settings edge to UserSettings by id.
+func (uu *UserUpdate) SetSettingsID(id int) *UserUpdate {
+	uu.mutation.SetSettingsID(id)
+	return uu
+}
+
+// SetNillableSettingsID sets the settings edge to UserSettings by id if the given value is not nil.
+func (uu *UserUpdate) SetNillableSettingsID(id *int) *UserUpdate {
+	if id != nil {
+		uu = uu.SetSettingsID(*id)
+	}
+	return uu
+}
+
+// SetSettings sets the settings edge to UserSettings.
+func (uu *UserUpdate) SetSettings(u *UserSettings) *UserUpdate {
+	return uu.SetSettingsID(u.ID)
+}
+
+// ClearSettings clears the settings edge to UserSettings.
+func (uu *UserUpdate) ClearSettings() *UserUpdate {
+	uu.mutation.ClearSettings()
+	return uu
+}
+
 // Save executes the query and returns the number of rows/vertices matched by this operation.
 func (uu *UserUpdate) Save(ctx context.Context) (int, error) {
+
 	var (
 		err      error
 		affected int
@@ -188,6 +215,41 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Column: user.FieldPaymentInfo,
 		})
 	}
+	if uu.mutation.SettingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   user.SettingsTable,
+			Columns: []string{user.SettingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: usersettings.FieldID,
+				},
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.SettingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   user.SettingsTable,
+			Columns: []string{user.SettingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: usersettings.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, uu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{user.Label}
@@ -259,8 +321,34 @@ func (uuo *UserUpdateOne) ClearPaymentInfo() *UserUpdateOne {
 	return uuo
 }
 
+// SetSettingsID sets the settings edge to UserSettings by id.
+func (uuo *UserUpdateOne) SetSettingsID(id int) *UserUpdateOne {
+	uuo.mutation.SetSettingsID(id)
+	return uuo
+}
+
+// SetNillableSettingsID sets the settings edge to UserSettings by id if the given value is not nil.
+func (uuo *UserUpdateOne) SetNillableSettingsID(id *int) *UserUpdateOne {
+	if id != nil {
+		uuo = uuo.SetSettingsID(*id)
+	}
+	return uuo
+}
+
+// SetSettings sets the settings edge to UserSettings.
+func (uuo *UserUpdateOne) SetSettings(u *UserSettings) *UserUpdateOne {
+	return uuo.SetSettingsID(u.ID)
+}
+
+// ClearSettings clears the settings edge to UserSettings.
+func (uuo *UserUpdateOne) ClearSettings() *UserUpdateOne {
+	uuo.mutation.ClearSettings()
+	return uuo
+}
+
 // Save executes the query and returns the updated entity.
 func (uuo *UserUpdateOne) Save(ctx context.Context) (*User, error) {
+
 	var (
 		err  error
 		node *User
@@ -364,6 +452,41 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (u *User, err error) {
 			Type:   field.TypeString,
 			Column: user.FieldPaymentInfo,
 		})
+	}
+	if uuo.mutation.SettingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   user.SettingsTable,
+			Columns: []string{user.SettingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: usersettings.FieldID,
+				},
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.SettingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   user.SettingsTable,
+			Columns: []string{user.SettingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: usersettings.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	u = &User{config: uuo.config}
 	_spec.Assign = u.assignValues

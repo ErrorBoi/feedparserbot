@@ -5,6 +5,7 @@ package user
 import (
 	"github.com/ErrorBoi/feedparserbot/ent/predicate"
 	"github.com/facebookincubator/ent/dialect/sql"
+	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
 )
 
 // ID filters vertices based on their identifier.
@@ -434,6 +435,34 @@ func PaymentInfoEqualFold(v string) predicate.User {
 func PaymentInfoContainsFold(v string) predicate.User {
 	return predicate.User(func(s *sql.Selector) {
 		s.Where(sql.ContainsFold(s.C(FieldPaymentInfo), v))
+	})
+}
+
+// HasSettings applies the HasEdge predicate on the "settings" edge.
+func HasSettings() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.To(SettingsTable, FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, SettingsTable, SettingsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSettingsWith applies the HasEdge predicate on the "settings" edge with a given conditions (other predicates).
+func HasSettingsWith(preds ...predicate.UserSettings) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.To(SettingsInverseTable, FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, SettingsTable, SettingsColumn),
+		)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
 	})
 }
 

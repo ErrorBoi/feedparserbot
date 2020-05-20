@@ -18,6 +18,8 @@ type Tx struct {
 	Source *SourceClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
+	// UserSettings is the client for interacting with the UserSettings builders.
+	UserSettings *UserSettingsClient
 
 	// lazily loaded.
 	client     *Client
@@ -78,6 +80,7 @@ func (tx *Tx) init() {
 	tx.Post = NewPostClient(tx.config)
 	tx.Source = NewSourceClient(tx.config)
 	tx.User = NewUserClient(tx.config)
+	tx.UserSettings = NewUserSettingsClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

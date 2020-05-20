@@ -10,6 +10,7 @@ import (
 	"github.com/ErrorBoi/feedparserbot/ent/schema"
 	"github.com/ErrorBoi/feedparserbot/ent/source"
 	"github.com/ErrorBoi/feedparserbot/ent/user"
+	"github.com/ErrorBoi/feedparserbot/ent/usersettings"
 
 	"github.com/facebookincubator/ent"
 )
@@ -23,9 +24,10 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypePost   = "Post"
-	TypeSource = "Source"
-	TypeUser   = "User"
+	TypePost         = "Post"
+	TypeSource       = "Source"
+	TypeUser         = "User"
+	TypeUserSettings = "UserSettings"
 )
 
 // PostMutation represents an operation that mutate the Posts
@@ -1259,14 +1261,16 @@ func (m *SourceMutation) ResetEdge(name string) error {
 // nodes in the graph.
 type UserMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *int
-	email         *string
-	tg_id         *int
-	addtg_id      *int
-	payment_info  *string
-	clearedFields map[string]struct{}
+	op              Op
+	typ             string
+	id              *int
+	email           *string
+	tg_id           *int
+	addtg_id        *int
+	payment_info    *string
+	clearedFields   map[string]struct{}
+	settings        *int
+	clearedsettings bool
 }
 
 var _ ent.Mutation = (*UserMutation)(nil)
@@ -1410,6 +1414,45 @@ func (m *UserMutation) PaymentInfoCleared() bool {
 func (m *UserMutation) ResetPaymentInfo() {
 	m.payment_info = nil
 	delete(m.clearedFields, user.FieldPaymentInfo)
+}
+
+// SetSettingsID sets the settings edge to UserSettings by id.
+func (m *UserMutation) SetSettingsID(id int) {
+	m.settings = &id
+}
+
+// ClearSettings clears the settings edge to UserSettings.
+func (m *UserMutation) ClearSettings() {
+	m.clearedsettings = true
+}
+
+// SettingsCleared returns if the edge settings was cleared.
+func (m *UserMutation) SettingsCleared() bool {
+	return m.clearedsettings
+}
+
+// SettingsID returns the settings id in the mutation.
+func (m *UserMutation) SettingsID() (id int, exists bool) {
+	if m.settings != nil {
+		return *m.settings, true
+	}
+	return
+}
+
+// SettingsIDs returns the settings ids in the mutation.
+// Note that ids always returns len(ids) <= 1 for unique edges, and you should use
+// SettingsID instead. It exists only for internal usage by the builders.
+func (m *UserMutation) SettingsIDs() (ids []int) {
+	if id := m.settings; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSettings reset all changes of the settings edge.
+func (m *UserMutation) ResetSettings() {
+	m.settings = nil
+	m.clearedsettings = false
 }
 
 // Op returns the operation name.
@@ -1576,7 +1619,10 @@ func (m *UserMutation) ResetField(name string) error {
 // AddedEdges returns all edge names that were set/added in this
 // mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.settings != nil {
+		edges = append(edges, user.EdgeSettings)
+	}
 	return edges
 }
 
@@ -1584,6 +1630,10 @@ func (m *UserMutation) AddedEdges() []string {
 // the given edge name.
 func (m *UserMutation) AddedIDs(name string) []ent.Value {
 	switch name {
+	case user.EdgeSettings:
+		if id := m.settings; id != nil {
+			return []ent.Value{*id}
+		}
 	}
 	return nil
 }
@@ -1591,7 +1641,7 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 // RemovedEdges returns all edge names that were removed in this
 // mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
 	return edges
 }
 
@@ -1606,7 +1656,10 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 // ClearedEdges returns all edge names that were cleared in this
 // mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.clearedsettings {
+		edges = append(edges, user.EdgeSettings)
+	}
 	return edges
 }
 
@@ -1614,6 +1667,8 @@ func (m *UserMutation) ClearedEdges() []string {
 // cleared in this mutation.
 func (m *UserMutation) EdgeCleared(name string) bool {
 	switch name {
+	case user.EdgeSettings:
+		return m.clearedsettings
 	}
 	return false
 }
@@ -1621,6 +1676,11 @@ func (m *UserMutation) EdgeCleared(name string) bool {
 // ClearEdge clears the value for the given name. It returns an
 // error if the edge name is not defined in the schema.
 func (m *UserMutation) ClearEdge(name string) error {
+	switch name {
+	case user.EdgeSettings:
+		m.ClearSettings()
+		return nil
+	}
 	return fmt.Errorf("unknown User unique edge %s", name)
 }
 
@@ -1629,6 +1689,501 @@ func (m *UserMutation) ClearEdge(name string) error {
 // defined in the schema.
 func (m *UserMutation) ResetEdge(name string) error {
 	switch name {
+	case user.EdgeSettings:
+		m.ResetSettings()
+		return nil
 	}
 	return fmt.Errorf("unknown User edge %s", name)
+}
+
+// UserSettingsMutation represents an operation that mutate the UserSettingsSlice
+// nodes in the graph.
+type UserSettingsMutation struct {
+	config
+	op                Op
+	typ               string
+	id                *int
+	urgent_words      *[]string
+	banned_words      *[]string
+	language          *usersettings.Language
+	sending_frequency *usersettings.SendingFrequency
+	last_sending      *time.Time
+	clearedFields     map[string]struct{}
+	user              *int
+	cleareduser       bool
+}
+
+var _ ent.Mutation = (*UserSettingsMutation)(nil)
+
+// newUserSettingsMutation creates new mutation for $n.Name.
+func newUserSettingsMutation(c config, op Op) *UserSettingsMutation {
+	return &UserSettingsMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeUserSettings,
+		clearedFields: make(map[string]struct{}),
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m UserSettingsMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m UserSettingsMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, fmt.Errorf("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the id value in the mutation. Note that, the id
+// is available only if it was provided to the builder.
+func (m *UserSettingsMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// SetUrgentWords sets the urgent_words field.
+func (m *UserSettingsMutation) SetUrgentWords(s []string) {
+	m.urgent_words = &s
+}
+
+// UrgentWords returns the urgent_words value in the mutation.
+func (m *UserSettingsMutation) UrgentWords() (r []string, exists bool) {
+	v := m.urgent_words
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearUrgentWords clears the value of urgent_words.
+func (m *UserSettingsMutation) ClearUrgentWords() {
+	m.urgent_words = nil
+	m.clearedFields[usersettings.FieldUrgentWords] = struct{}{}
+}
+
+// UrgentWordsCleared returns if the field urgent_words was cleared in this mutation.
+func (m *UserSettingsMutation) UrgentWordsCleared() bool {
+	_, ok := m.clearedFields[usersettings.FieldUrgentWords]
+	return ok
+}
+
+// ResetUrgentWords reset all changes of the urgent_words field.
+func (m *UserSettingsMutation) ResetUrgentWords() {
+	m.urgent_words = nil
+	delete(m.clearedFields, usersettings.FieldUrgentWords)
+}
+
+// SetBannedWords sets the banned_words field.
+func (m *UserSettingsMutation) SetBannedWords(s []string) {
+	m.banned_words = &s
+}
+
+// BannedWords returns the banned_words value in the mutation.
+func (m *UserSettingsMutation) BannedWords() (r []string, exists bool) {
+	v := m.banned_words
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearBannedWords clears the value of banned_words.
+func (m *UserSettingsMutation) ClearBannedWords() {
+	m.banned_words = nil
+	m.clearedFields[usersettings.FieldBannedWords] = struct{}{}
+}
+
+// BannedWordsCleared returns if the field banned_words was cleared in this mutation.
+func (m *UserSettingsMutation) BannedWordsCleared() bool {
+	_, ok := m.clearedFields[usersettings.FieldBannedWords]
+	return ok
+}
+
+// ResetBannedWords reset all changes of the banned_words field.
+func (m *UserSettingsMutation) ResetBannedWords() {
+	m.banned_words = nil
+	delete(m.clearedFields, usersettings.FieldBannedWords)
+}
+
+// SetLanguage sets the language field.
+func (m *UserSettingsMutation) SetLanguage(u usersettings.Language) {
+	m.language = &u
+}
+
+// Language returns the language value in the mutation.
+func (m *UserSettingsMutation) Language() (r usersettings.Language, exists bool) {
+	v := m.language
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetLanguage reset all changes of the language field.
+func (m *UserSettingsMutation) ResetLanguage() {
+	m.language = nil
+}
+
+// SetSendingFrequency sets the sending_frequency field.
+func (m *UserSettingsMutation) SetSendingFrequency(uf usersettings.SendingFrequency) {
+	m.sending_frequency = &uf
+}
+
+// SendingFrequency returns the sending_frequency value in the mutation.
+func (m *UserSettingsMutation) SendingFrequency() (r usersettings.SendingFrequency, exists bool) {
+	v := m.sending_frequency
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSendingFrequency reset all changes of the sending_frequency field.
+func (m *UserSettingsMutation) ResetSendingFrequency() {
+	m.sending_frequency = nil
+}
+
+// SetLastSending sets the last_sending field.
+func (m *UserSettingsMutation) SetLastSending(t time.Time) {
+	m.last_sending = &t
+}
+
+// LastSending returns the last_sending value in the mutation.
+func (m *UserSettingsMutation) LastSending() (r time.Time, exists bool) {
+	v := m.last_sending
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearLastSending clears the value of last_sending.
+func (m *UserSettingsMutation) ClearLastSending() {
+	m.last_sending = nil
+	m.clearedFields[usersettings.FieldLastSending] = struct{}{}
+}
+
+// LastSendingCleared returns if the field last_sending was cleared in this mutation.
+func (m *UserSettingsMutation) LastSendingCleared() bool {
+	_, ok := m.clearedFields[usersettings.FieldLastSending]
+	return ok
+}
+
+// ResetLastSending reset all changes of the last_sending field.
+func (m *UserSettingsMutation) ResetLastSending() {
+	m.last_sending = nil
+	delete(m.clearedFields, usersettings.FieldLastSending)
+}
+
+// SetUserID sets the user edge to User by id.
+func (m *UserSettingsMutation) SetUserID(id int) {
+	m.user = &id
+}
+
+// ClearUser clears the user edge to User.
+func (m *UserSettingsMutation) ClearUser() {
+	m.cleareduser = true
+}
+
+// UserCleared returns if the edge user was cleared.
+func (m *UserSettingsMutation) UserCleared() bool {
+	return m.cleareduser
+}
+
+// UserID returns the user id in the mutation.
+func (m *UserSettingsMutation) UserID() (id int, exists bool) {
+	if m.user != nil {
+		return *m.user, true
+	}
+	return
+}
+
+// UserIDs returns the user ids in the mutation.
+// Note that ids always returns len(ids) <= 1 for unique edges, and you should use
+// UserID instead. It exists only for internal usage by the builders.
+func (m *UserSettingsMutation) UserIDs() (ids []int) {
+	if id := m.user; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetUser reset all changes of the user edge.
+func (m *UserSettingsMutation) ResetUser() {
+	m.user = nil
+	m.cleareduser = false
+}
+
+// Op returns the operation name.
+func (m *UserSettingsMutation) Op() Op {
+	return m.op
+}
+
+// Type returns the node type of this mutation (UserSettings).
+func (m *UserSettingsMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during
+// this mutation. Note that, in order to get all numeric
+// fields that were in/decremented, call AddedFields().
+func (m *UserSettingsMutation) Fields() []string {
+	fields := make([]string, 0, 5)
+	if m.urgent_words != nil {
+		fields = append(fields, usersettings.FieldUrgentWords)
+	}
+	if m.banned_words != nil {
+		fields = append(fields, usersettings.FieldBannedWords)
+	}
+	if m.language != nil {
+		fields = append(fields, usersettings.FieldLanguage)
+	}
+	if m.sending_frequency != nil {
+		fields = append(fields, usersettings.FieldSendingFrequency)
+	}
+	if m.last_sending != nil {
+		fields = append(fields, usersettings.FieldLastSending)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name.
+// The second boolean value indicates that this field was
+// not set, or was not define in the schema.
+func (m *UserSettingsMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case usersettings.FieldUrgentWords:
+		return m.UrgentWords()
+	case usersettings.FieldBannedWords:
+		return m.BannedWords()
+	case usersettings.FieldLanguage:
+		return m.Language()
+	case usersettings.FieldSendingFrequency:
+		return m.SendingFrequency()
+	case usersettings.FieldLastSending:
+		return m.LastSending()
+	}
+	return nil, false
+}
+
+// SetField sets the value for the given name. It returns an
+// error if the field is not defined in the schema, or if the
+// type mismatch the field type.
+func (m *UserSettingsMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case usersettings.FieldUrgentWords:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUrgentWords(v)
+		return nil
+	case usersettings.FieldBannedWords:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBannedWords(v)
+		return nil
+	case usersettings.FieldLanguage:
+		v, ok := value.(usersettings.Language)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLanguage(v)
+		return nil
+	case usersettings.FieldSendingFrequency:
+		v, ok := value.(usersettings.SendingFrequency)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSendingFrequency(v)
+		return nil
+	case usersettings.FieldLastSending:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastSending(v)
+		return nil
+	}
+	return fmt.Errorf("unknown UserSettings field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented
+// or decremented during this mutation.
+func (m *UserSettingsMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was in/decremented
+// from a field with the given name. The second value indicates
+// that this field was not set, or was not define in the schema.
+func (m *UserSettingsMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value for the given name. It returns an
+// error if the field is not defined in the schema, or if the
+// type mismatch the field type.
+func (m *UserSettingsMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown UserSettings numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared
+// during this mutation.
+func (m *UserSettingsMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(usersettings.FieldUrgentWords) {
+		fields = append(fields, usersettings.FieldUrgentWords)
+	}
+	if m.FieldCleared(usersettings.FieldBannedWords) {
+		fields = append(fields, usersettings.FieldBannedWords)
+	}
+	if m.FieldCleared(usersettings.FieldLastSending) {
+		fields = append(fields, usersettings.FieldLastSending)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicates if this field was
+// cleared in this mutation.
+func (m *UserSettingsMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value for the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *UserSettingsMutation) ClearField(name string) error {
+	switch name {
+	case usersettings.FieldUrgentWords:
+		m.ClearUrgentWords()
+		return nil
+	case usersettings.FieldBannedWords:
+		m.ClearBannedWords()
+		return nil
+	case usersettings.FieldLastSending:
+		m.ClearLastSending()
+		return nil
+	}
+	return fmt.Errorf("unknown UserSettings nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation regarding the
+// given field name. It returns an error if the field is not
+// defined in the schema.
+func (m *UserSettingsMutation) ResetField(name string) error {
+	switch name {
+	case usersettings.FieldUrgentWords:
+		m.ResetUrgentWords()
+		return nil
+	case usersettings.FieldBannedWords:
+		m.ResetBannedWords()
+		return nil
+	case usersettings.FieldLanguage:
+		m.ResetLanguage()
+		return nil
+	case usersettings.FieldSendingFrequency:
+		m.ResetSendingFrequency()
+		return nil
+	case usersettings.FieldLastSending:
+		m.ResetLastSending()
+		return nil
+	}
+	return fmt.Errorf("unknown UserSettings field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this
+// mutation.
+func (m *UserSettingsMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.user != nil {
+		edges = append(edges, usersettings.EdgeUser)
+	}
+	return edges
+}
+
+// AddedIDs returns all ids (to other nodes) that were added for
+// the given edge name.
+func (m *UserSettingsMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case usersettings.EdgeUser:
+		if id := m.user; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this
+// mutation.
+func (m *UserSettingsMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all ids (to other nodes) that were removed for
+// the given edge name.
+func (m *UserSettingsMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this
+// mutation.
+func (m *UserSettingsMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.cleareduser {
+		edges = append(edges, usersettings.EdgeUser)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean indicates if this edge was
+// cleared in this mutation.
+func (m *UserSettingsMutation) EdgeCleared(name string) bool {
+	switch name {
+	case usersettings.EdgeUser:
+		return m.cleareduser
+	}
+	return false
+}
+
+// ClearEdge clears the value for the given name. It returns an
+// error if the edge name is not defined in the schema.
+func (m *UserSettingsMutation) ClearEdge(name string) error {
+	switch name {
+	case usersettings.EdgeUser:
+		m.ClearUser()
+		return nil
+	}
+	return fmt.Errorf("unknown UserSettings unique edge %s", name)
+}
+
+// ResetEdge resets all changes in the mutation regarding the
+// given edge name. It returns an error if the edge is not
+// defined in the schema.
+func (m *UserSettingsMutation) ResetEdge(name string) error {
+	switch name {
+	case usersettings.EdgeUser:
+		m.ResetUser()
+		return nil
+	}
+	return fmt.Errorf("unknown UserSettings edge %s", name)
 }

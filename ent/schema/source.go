@@ -16,7 +16,7 @@ func (Source) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("url").Unique(),
 		field.String("title"),
-		field.Enum("language").Values("ru", "en"),
+		field.Enum("language").Values("ru", "en").Default("ru"),
 	}
 }
 

@@ -25,4 +25,8 @@ func init() {
 	post.DefaultUpdatedAt = postDescUpdatedAt.Default.(func() time.Time)
 	// post.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	post.UpdateDefaultUpdatedAt = postDescUpdatedAt.UpdateDefault.(func() time.Time)
+	sourceFields := schema.Source{}.Fields()
+	_ = sourceFields
+	usersettingsFields := schema.UserSettings{}.Fields()
+	_ = usersettingsFields
 }

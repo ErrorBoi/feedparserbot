@@ -38,6 +38,14 @@ func (sc *SourceCreate) SetLanguage(s source.Language) *SourceCreate {
 	return sc
 }
 
+// SetNillableLanguage sets the language field if the given value is not nil.
+func (sc *SourceCreate) SetNillableLanguage(s *source.Language) *SourceCreate {
+	if s != nil {
+		sc.SetLanguage(*s)
+	}
+	return sc
+}
+
 // SetParentID sets the parent edge to Source by id.
 func (sc *SourceCreate) SetParentID(id int) *SourceCreate {
 	sc.mutation.SetParentID(id)
@@ -96,7 +104,8 @@ func (sc *SourceCreate) Save(ctx context.Context) (*Source, error) {
 		return nil, errors.New("ent: missing required field \"title\"")
 	}
 	if _, ok := sc.mutation.Language(); !ok {
-		return nil, errors.New("ent: missing required field \"language\"")
+		v := source.DefaultLanguage
+		sc.mutation.SetLanguage(v)
 	}
 	if v, ok := sc.mutation.Language(); ok {
 		if err := source.LanguageValidator(v); err != nil {

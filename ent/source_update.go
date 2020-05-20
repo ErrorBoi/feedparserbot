@@ -46,6 +46,14 @@ func (su *SourceUpdate) SetLanguage(s source.Language) *SourceUpdate {
 	return su
 }
 
+// SetNillableLanguage sets the language field if the given value is not nil.
+func (su *SourceUpdate) SetNillableLanguage(s *source.Language) *SourceUpdate {
+	if s != nil {
+		su.SetLanguage(*s)
+	}
+	return su
+}
+
 // SetParentID sets the parent edge to Source by id.
 func (su *SourceUpdate) SetParentID(id int) *SourceUpdate {
 	su.mutation.SetParentID(id)
@@ -370,6 +378,14 @@ func (suo *SourceUpdateOne) SetTitle(s string) *SourceUpdateOne {
 // SetLanguage sets the language field.
 func (suo *SourceUpdateOne) SetLanguage(s source.Language) *SourceUpdateOne {
 	suo.mutation.SetLanguage(s)
+	return suo
+}
+
+// SetNillableLanguage sets the language field if the given value is not nil.
+func (suo *SourceUpdateOne) SetNillableLanguage(s *source.Language) *SourceUpdateOne {
+	if s != nil {
+		suo.SetLanguage(*s)
+	}
 	return suo
 }
 
