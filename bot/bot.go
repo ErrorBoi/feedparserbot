@@ -5,15 +5,18 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"go.uber.org/zap"
+
+	"github.com/ErrorBoi/feedparserbot/ent"
 )
 
 type Bot struct {
 	BotAPI *tgbotapi.BotAPI
+	cli    *ent.Client
 	lg     *zap.SugaredLogger
 }
 
 // InitBot inits a bot with given Token
-func InitBot(BotToken string, lg *zap.SugaredLogger) (*Bot, error) {
+func InitBot(BotToken string, cli *ent.Client, lg *zap.SugaredLogger) (*Bot, error) {
 	var err error
 	botAPI, err := tgbotapi.NewBotAPI(BotToken)
 	if err != nil {
@@ -22,6 +25,7 @@ func InitBot(BotToken string, lg *zap.SugaredLogger) (*Bot, error) {
 
 	return &Bot{
 		BotAPI: botAPI,
+		cli:    cli,
 		lg:     lg,
 	}, nil
 }
@@ -62,7 +66,7 @@ func (b *Bot) ExecuteCommand(m *tgbotapi.Message) {
 		go b.help(m)
 	default:
 		if m.Chat.IsPrivate() {
-			msg := tgbotapi.NewMessage(m.Chat.ID, "К сожалению, я не знаю такой команды. " +
+			msg := tgbotapi.NewMessage(m.Chat.ID, "К сожалению, я не знаю такой команды. "+
 				"Напишите /help для получения справки по командам")
 			msg.ReplyToMessageID = m.MessageID
 			b.BotAPI.Send(msg)
