@@ -35,9 +35,11 @@ type SourceEdges struct {
 	Children []*Source
 	// Posts holds the value of the posts edge.
 	Posts []*Post
+	// Users holds the value of the users edge.
+	Users []*User
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [4]bool
 }
 
 // ParentOrErr returns the Parent value or an error if the edge
@@ -70,6 +72,15 @@ func (e SourceEdges) PostsOrErr() ([]*Post, error) {
 		return e.Posts, nil
 	}
 	return nil, &NotLoadedError{edge: "posts"}
+}
+
+// UsersOrErr returns the Users value or an error if the edge
+// was not loaded in eager-loading.
+func (e SourceEdges) UsersOrErr() ([]*User, error) {
+	if e.loadedTypes[3] {
+		return e.Users, nil
+	}
+	return nil, &NotLoadedError{edge: "users"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -141,6 +152,11 @@ func (s *Source) QueryChildren() *SourceQuery {
 // QueryPosts queries the posts edge of the Source.
 func (s *Source) QueryPosts() *PostQuery {
 	return (&SourceClient{config: s.config}).QueryPosts(s)
+}
+
+// QueryUsers queries the users edge of the Source.
+func (s *Source) QueryUsers() *UserQuery {
+	return (&SourceClient{config: s.config}).QueryUsers(s)
 }
 
 // Update returns a builder for updating this Source.

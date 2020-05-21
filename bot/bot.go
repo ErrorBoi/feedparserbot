@@ -1,22 +1,24 @@
 package bot
 
 import (
+	"fmt"
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/jasonlvhit/gocron"
 	"go.uber.org/zap"
 
-	"github.com/ErrorBoi/feedparserbot/ent"
+	"github.com/ErrorBoi/feedparserbot/db"
 )
 
 type Bot struct {
 	BotAPI *tgbotapi.BotAPI
-	cli    *ent.Client
+	db     *db.DB
 	lg     *zap.SugaredLogger
 }
 
 // InitBot inits a bot with given Token
-func InitBot(BotToken string, cli *ent.Client, lg *zap.SugaredLogger) (*Bot, error) {
+func InitBot(BotToken string, db *db.DB, lg *zap.SugaredLogger) (*Bot, error) {
 	var err error
 	botAPI, err := tgbotapi.NewBotAPI(BotToken)
 	if err != nil {
@@ -25,7 +27,7 @@ func InitBot(BotToken string, cli *ent.Client, lg *zap.SugaredLogger) (*Bot, err
 
 	return &Bot{
 		BotAPI: botAPI,
-		cli:    cli,
+		db:     db,
 		lg:     lg,
 	}, nil
 }
@@ -39,6 +41,8 @@ func (b *Bot) InitUpdates(BotToken string) error {
 	if err != nil {
 		return err
 	}
+
+	go b.RunScheduler()
 
 	for update := range updates {
 		if update.Message == nil { // ignore any non-Message Updates
@@ -72,4 +76,14 @@ func (b *Bot) ExecuteCommand(m *tgbotapi.Message) {
 			b.BotAPI.Send(msg)
 		}
 	}
+}
+
+func (b *Bot) RunScheduler() {
+	fmt.Println("started scheduler")
+
+	// Parse RSS Feeds every 5 minutes
+	gocron.Every(1).Minute().Do(b.parseSources)
+
+	// Start all the pending jobs
+	<-gocron.Start()
 }

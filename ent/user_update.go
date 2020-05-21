@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/ErrorBoi/feedparserbot/ent/predicate"
+	"github.com/ErrorBoi/feedparserbot/ent/source"
 	"github.com/ErrorBoi/feedparserbot/ent/user"
 	"github.com/ErrorBoi/feedparserbot/ent/usersettings"
 	"github.com/facebookincubator/ent/dialect/sql"
@@ -100,10 +101,40 @@ func (uu *UserUpdate) SetSettings(u *UserSettings) *UserUpdate {
 	return uu.SetSettingsID(u.ID)
 }
 
+// AddSourceIDs adds the sources edge to Source by ids.
+func (uu *UserUpdate) AddSourceIDs(ids ...int) *UserUpdate {
+	uu.mutation.AddSourceIDs(ids...)
+	return uu
+}
+
+// AddSources adds the sources edges to Source.
+func (uu *UserUpdate) AddSources(s ...*Source) *UserUpdate {
+	ids := make([]int, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return uu.AddSourceIDs(ids...)
+}
+
 // ClearSettings clears the settings edge to UserSettings.
 func (uu *UserUpdate) ClearSettings() *UserUpdate {
 	uu.mutation.ClearSettings()
 	return uu
+}
+
+// RemoveSourceIDs removes the sources edge to Source by ids.
+func (uu *UserUpdate) RemoveSourceIDs(ids ...int) *UserUpdate {
+	uu.mutation.RemoveSourceIDs(ids...)
+	return uu
+}
+
+// RemoveSources removes sources edges to Source.
+func (uu *UserUpdate) RemoveSources(s ...*Source) *UserUpdate {
+	ids := make([]int, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return uu.RemoveSourceIDs(ids...)
 }
 
 // Save executes the query and returns the number of rows/vertices matched by this operation.
@@ -250,6 +281,44 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if nodes := uu.mutation.RemovedSourcesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   user.SourcesTable,
+			Columns: user.SourcesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: source.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.SourcesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   user.SourcesTable,
+			Columns: user.SourcesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: source.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, uu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{user.Label}
@@ -340,10 +409,40 @@ func (uuo *UserUpdateOne) SetSettings(u *UserSettings) *UserUpdateOne {
 	return uuo.SetSettingsID(u.ID)
 }
 
+// AddSourceIDs adds the sources edge to Source by ids.
+func (uuo *UserUpdateOne) AddSourceIDs(ids ...int) *UserUpdateOne {
+	uuo.mutation.AddSourceIDs(ids...)
+	return uuo
+}
+
+// AddSources adds the sources edges to Source.
+func (uuo *UserUpdateOne) AddSources(s ...*Source) *UserUpdateOne {
+	ids := make([]int, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return uuo.AddSourceIDs(ids...)
+}
+
 // ClearSettings clears the settings edge to UserSettings.
 func (uuo *UserUpdateOne) ClearSettings() *UserUpdateOne {
 	uuo.mutation.ClearSettings()
 	return uuo
+}
+
+// RemoveSourceIDs removes the sources edge to Source by ids.
+func (uuo *UserUpdateOne) RemoveSourceIDs(ids ...int) *UserUpdateOne {
+	uuo.mutation.RemoveSourceIDs(ids...)
+	return uuo
+}
+
+// RemoveSources removes sources edges to Source.
+func (uuo *UserUpdateOne) RemoveSources(s ...*Source) *UserUpdateOne {
+	ids := make([]int, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return uuo.RemoveSourceIDs(ids...)
 }
 
 // Save executes the query and returns the updated entity.
@@ -480,6 +579,44 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (u *User, err error) {
 				IDSpec: &sqlgraph.FieldSpec{
 					Type:   field.TypeInt,
 					Column: usersettings.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if nodes := uuo.mutation.RemovedSourcesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   user.SourcesTable,
+			Columns: user.SourcesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: source.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.SourcesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   user.SourcesTable,
+			Columns: user.SourcesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: source.FieldID,
 				},
 			},
 		}

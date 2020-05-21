@@ -31,7 +31,8 @@ func main() {
 	dbName := os.Getenv("DBNAME")
 
 	dataSourceName := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", user, pass, host, port, dbName)
-	cli, err := db.NewDB(dataSourceName)
+	ytToken := os.Getenv("YTTOKEN")
+	Fpdb, err := db.NewDB(dataSourceName, ytToken)
 	if err != nil {
 		sugar.Infow("Database connection error",
 			"host", host,
@@ -41,12 +42,12 @@ func main() {
 			"dbName", dbName)
 		sugar.Fatalf("Database connection error: %v", err)
 	}
-	defer cli.Close()
+	defer Fpdb.Cli.Close()
 
 	sugar.Info("Successfully connected to database!")
 
 	// run the auto migration tool.
-	if err := cli.Schema.Create(context.Background()); err != nil {
+	if err := Fpdb.Cli.Schema.Create(context.Background()); err != nil {
 		sugar.Fatalf("failed creating schema resources: %v", err)
 	}
 
@@ -56,17 +57,23 @@ func main() {
 	}
 
 	if doScrap {
-		err = scrap.Sources(cli)
+		err = scrap.Sources(Fpdb.Cli)
 		if err != nil {
 			sugar.Errorf("Scrap sources error: %v", err)
 		}
-		err = scrap.VCHubs(cli)
+
+		err = scrap.VCHubs(Fpdb.Cli)
 		if err != nil {
 			sugar.Errorf("Scrap VC hubs error: %v", err)
 		}
+
+		err = scrap.RBHubs(Fpdb.Cli)
+		if err != nil {
+			sugar.Errorf("Scrap RB hubs error: %v", err)
+		}
 	}
 
-	Fpbot, err := bot.InitBot(token, cli, sugar)
+	Fpbot, err := bot.InitBot(token, Fpdb, sugar)
 	if err != nil {
 		sugar.Infow("Bot init error",
 			"botToken", token)

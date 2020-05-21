@@ -12,6 +12,7 @@ import (
 	"github.com/ErrorBoi/feedparserbot/ent/post"
 	"github.com/ErrorBoi/feedparserbot/ent/predicate"
 	"github.com/ErrorBoi/feedparserbot/ent/source"
+	"github.com/ErrorBoi/feedparserbot/ent/user"
 	"github.com/facebookincubator/ent/dialect/sql"
 	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
 	"github.com/facebookincubator/ent/schema/field"
@@ -29,6 +30,7 @@ type SourceQuery struct {
 	withParent   *SourceQuery
 	withChildren *SourceQuery
 	withPosts    *PostQuery
+	withUsers    *UserQuery
 	withFKs      bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -106,6 +108,24 @@ func (sq *SourceQuery) QueryPosts() *PostQuery {
 			sqlgraph.From(source.Table, source.FieldID, sq.sqlQuery()),
 			sqlgraph.To(post.Table, post.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, source.PostsTable, source.PostsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(sq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryUsers chains the current query on the users edge.
+func (sq *SourceQuery) QueryUsers() *UserQuery {
+	query := &UserQuery{config: sq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := sq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(source.Table, source.FieldID, sq.sqlQuery()),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, source.UsersTable, source.UsersPrimaryKey...),
 		)
 		fromU = sqlgraph.SetNeighbors(sq.driver.Dialect(), step)
 		return fromU, nil
@@ -325,6 +345,17 @@ func (sq *SourceQuery) WithPosts(opts ...func(*PostQuery)) *SourceQuery {
 	return sq
 }
 
+//  WithUsers tells the query-builder to eager-loads the nodes that are connected to
+// the "users" edge. The optional arguments used to configure the query builder of the edge.
+func (sq *SourceQuery) WithUsers(opts ...func(*UserQuery)) *SourceQuery {
+	query := &UserQuery{config: sq.config}
+	for _, opt := range opts {
+		opt(query)
+	}
+	sq.withUsers = query
+	return sq
+}
+
 // GroupBy used to group vertices by one or more fields/columns.
 // It is often used with aggregate functions, like: count, max, mean, min, sum.
 //
@@ -392,10 +423,11 @@ func (sq *SourceQuery) sqlAll(ctx context.Context) ([]*Source, error) {
 		nodes       = []*Source{}
 		withFKs     = sq.withFKs
 		_spec       = sq.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [4]bool{
 			sq.withParent != nil,
 			sq.withChildren != nil,
 			sq.withPosts != nil,
+			sq.withUsers != nil,
 		}
 	)
 	if sq.withParent != nil {
@@ -506,6 +538,69 @@ func (sq *SourceQuery) sqlAll(ctx context.Context) ([]*Source, error) {
 				return nil, fmt.Errorf(`unexpected foreign-key "source_posts" returned %v for node %v`, *fk, n.ID)
 			}
 			node.Edges.Posts = append(node.Edges.Posts, n)
+		}
+	}
+
+	if query := sq.withUsers; query != nil {
+		fks := make([]driver.Value, 0, len(nodes))
+		ids := make(map[int]*Source, len(nodes))
+		for _, node := range nodes {
+			ids[node.ID] = node
+			fks = append(fks, node.ID)
+		}
+		var (
+			edgeids []int
+			edges   = make(map[int][]*Source)
+		)
+		_spec := &sqlgraph.EdgeQuerySpec{
+			Edge: &sqlgraph.EdgeSpec{
+				Inverse: true,
+				Table:   source.UsersTable,
+				Columns: source.UsersPrimaryKey,
+			},
+			Predicate: func(s *sql.Selector) {
+				s.Where(sql.InValues(source.UsersPrimaryKey[1], fks...))
+			},
+
+			ScanValues: func() [2]interface{} {
+				return [2]interface{}{&sql.NullInt64{}, &sql.NullInt64{}}
+			},
+			Assign: func(out, in interface{}) error {
+				eout, ok := out.(*sql.NullInt64)
+				if !ok || eout == nil {
+					return fmt.Errorf("unexpected id value for edge-out")
+				}
+				ein, ok := in.(*sql.NullInt64)
+				if !ok || ein == nil {
+					return fmt.Errorf("unexpected id value for edge-in")
+				}
+				outValue := int(eout.Int64)
+				inValue := int(ein.Int64)
+				node, ok := ids[outValue]
+				if !ok {
+					return fmt.Errorf("unexpected node id in edges: %v", outValue)
+				}
+				edgeids = append(edgeids, inValue)
+				edges[inValue] = append(edges[inValue], node)
+				return nil
+			},
+		}
+		if err := sqlgraph.QueryEdges(ctx, sq.driver, _spec); err != nil {
+			return nil, fmt.Errorf(`query edges "users": %v`, err)
+		}
+		query.Where(user.IDIn(edgeids...))
+		neighbors, err := query.All(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, n := range neighbors {
+			nodes, ok := edges[n.ID]
+			if !ok {
+				return nil, fmt.Errorf(`unexpected "users" node returned %v`, n.ID)
+			}
+			for i := range nodes {
+				nodes[i].Edges.Users = append(nodes[i].Edges.Users, n)
+			}
 		}
 	}
 

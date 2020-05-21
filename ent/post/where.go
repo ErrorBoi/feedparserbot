@@ -399,6 +399,20 @@ func SubjectContainsFold(v string) predicate.Post {
 	})
 }
 
+// SubjectTranslationsIsNil applies the IsNil predicate on the "subject_translations" field.
+func SubjectTranslationsIsNil() predicate.Post {
+	return predicate.Post(func(s *sql.Selector) {
+		s.Where(sql.IsNull(s.C(FieldSubjectTranslations)))
+	})
+}
+
+// SubjectTranslationsNotNil applies the NotNil predicate on the "subject_translations" field.
+func SubjectTranslationsNotNil() predicate.Post {
+	return predicate.Post(func(s *sql.Selector) {
+		s.Where(sql.NotNull(s.C(FieldSubjectTranslations)))
+	})
+}
+
 // URLEQ applies the EQ predicate on the "url" field.
 func URLEQ(v string) predicate.Post {
 	return predicate.Post(func(s *sql.Selector) {
@@ -1144,6 +1158,20 @@ func UpdatedByLT(v int) predicate.Post {
 func UpdatedByLTE(v int) predicate.Post {
 	return predicate.Post(func(s *sql.Selector) {
 		s.Where(sql.LTE(s.C(FieldUpdatedBy), v))
+	})
+}
+
+// UpdatedByIsNil applies the IsNil predicate on the "updated_by" field.
+func UpdatedByIsNil() predicate.Post {
+	return predicate.Post(func(s *sql.Selector) {
+		s.Where(sql.IsNull(s.C(FieldUpdatedBy)))
+	})
+}
+
+// UpdatedByNotNil applies the NotNil predicate on the "updated_by" field.
+func UpdatedByNotNil() predicate.Post {
+	return predicate.Post(func(s *sql.Selector) {
+		s.Where(sql.NotNull(s.C(FieldUpdatedBy)))
 	})
 }
 

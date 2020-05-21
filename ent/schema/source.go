@@ -27,5 +27,7 @@ func (Source) Edges() []ent.Edge {
 			From("parent").
 			Unique(),
 		edge.To("posts", Post.Type),
+		edge.From("users", User.Type).
+			Ref("sources"),
 	}
 }

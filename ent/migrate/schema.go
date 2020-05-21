@@ -14,15 +14,15 @@ var (
 		{Name: "title", Type: field.TypeString},
 		{Name: "title_translations", Type: field.TypeJSON},
 		{Name: "subject", Type: field.TypeString, Nullable: true, Size: 2147483647},
-		{Name: "subject_translations", Type: field.TypeJSON},
-		{Name: "url", Type: field.TypeString},
+		{Name: "subject_translations", Type: field.TypeJSON, Nullable: true},
+		{Name: "url", Type: field.TypeString, Unique: true},
 		{Name: "published_at", Type: field.TypeTime},
 		{Name: "description", Type: field.TypeString},
 		{Name: "h1", Type: field.TypeString},
 		{Name: "content", Type: field.TypeString, Size: 2147483647},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "updated_by", Type: field.TypeInt},
+		{Name: "updated_by", Type: field.TypeInt, Nullable: true},
 		{Name: "source_posts", Type: field.TypeInt, Nullable: true},
 	}
 	// PostsTable holds the schema information for the "posts" table.
@@ -102,12 +102,40 @@ var (
 			},
 		},
 	}
+	// UserSourcesColumns holds the columns for the "user_sources" table.
+	UserSourcesColumns = []*schema.Column{
+		{Name: "user_id", Type: field.TypeInt},
+		{Name: "source_id", Type: field.TypeInt},
+	}
+	// UserSourcesTable holds the schema information for the "user_sources" table.
+	UserSourcesTable = &schema.Table{
+		Name:       "user_sources",
+		Columns:    UserSourcesColumns,
+		PrimaryKey: []*schema.Column{UserSourcesColumns[0], UserSourcesColumns[1]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:  "user_sources_user_id",
+				Columns: []*schema.Column{UserSourcesColumns[0]},
+
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:  "user_sources_source_id",
+				Columns: []*schema.Column{UserSourcesColumns[1]},
+
+				RefColumns: []*schema.Column{SourcesColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		PostsTable,
 		SourcesTable,
 		UsersTable,
 		UserSettingsTable,
+		UserSourcesTable,
 	}
 )
 
@@ -115,4 +143,6 @@ func init() {
 	PostsTable.ForeignKeys[0].RefTable = SourcesTable
 	SourcesTable.ForeignKeys[0].RefTable = SourcesTable
 	UserSettingsTable.ForeignKeys[0].RefTable = UsersTable
+	UserSourcesTable.ForeignKeys[0].RefTable = UsersTable
+	UserSourcesTable.ForeignKeys[1].RefTable = SourcesTable
 }

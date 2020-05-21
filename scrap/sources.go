@@ -13,7 +13,7 @@ import (
 
 var sources = []string{
 	"https://vc.ru/rss/all",
-	"https://rb.ru/feeds/all/",
+	"https://rb.ru/feeds/all",
 	"https://www.forbes.ru/newrss.xml",
 	"https://www.fontanka.ru/fontanka.rss",
 }

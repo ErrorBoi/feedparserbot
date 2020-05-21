@@ -13,12 +13,7 @@ type Post struct {
 	ent.Schema
 }
 
-type TitleTranslations struct {
-	RU string
-	EN string
-}
-
-type SubjectTranslations struct {
+type Translations struct {
 	RU string
 	EN string
 }
@@ -27,17 +22,17 @@ type SubjectTranslations struct {
 func (Post) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("title"),
-		field.JSON("title_translations", TitleTranslations{}),
+		field.JSON("title_translations", Translations{}),
 		field.Text("subject").Nillable().Optional(),
-		field.JSON("subject_translations", SubjectTranslations{}),
-		field.String("url"),
+		field.JSON("subject_translations", Translations{}).Optional(),
+		field.String("url").Unique(),
 		field.Time("published_at"),
 		field.String("description"),
 		field.String("h1"),
 		field.Text("content"),
 		field.Time("created_at").Default(time.Now),
 		field.Time("updated_at").Default(time.Now).UpdateDefault(time.Now),
-		field.Int("updated_by"),
+		field.Int("updated_by").Nillable().Optional(),
 	}
 }
 

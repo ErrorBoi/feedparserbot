@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 
+	translate "github.com/dafanasev/go-yandex-translate"
 	entsql "github.com/facebookincubator/ent/dialect/sql"
 
 	"github.com/ErrorBoi/feedparserbot/ent"
@@ -15,8 +16,13 @@ import (
 	_ "github.com/lib/pq"
 )
 
+type DB struct {
+	Cli *ent.Client
+	Tr  *translate.Translator
+}
+
 // NewDB creates and returns Database
-func NewDB(dataSourceName string) (*ent.Client, error) {
+func NewDB(dataSourceName string, ytToken string) (*DB, error) {
 	db, err := sql.Open("postgres", dataSourceName)
 	if err != nil {
 		return nil, err
@@ -25,11 +31,13 @@ func NewDB(dataSourceName string) (*ent.Client, error) {
 	// Create an ent.Driver from `db`.
 	drv := entsql.OpenDB("postgres", db)
 
-	return ent.NewClient(ent.Driver(drv)), nil
+	tr := translate.New(ytToken)
+
+	return &DB{Cli: ent.NewClient(ent.Driver(drv)), Tr: tr}, nil
 }
 
-func CreatePost(ctx context.Context, client *ent.Client) (*ent.Post, error) {
-	titleTransactions := schema.TitleTranslations{
+func CreatePostExample(ctx context.Context, client *ent.Client) (*ent.Post, error) {
+	titleTransactions := schema.Translations{
 		RU: "пример",
 		EN: "sample",
 	}

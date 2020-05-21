@@ -38,9 +38,9 @@ type PostMutation struct {
 	typ                  string
 	id                   *int
 	title                *string
-	title_translations   *schema.TitleTranslations
+	title_translations   *schema.Translations
 	subject              *string
-	subject_translations *schema.SubjectTranslations
+	subject_translations *schema.Translations
 	url                  *string
 	published_at         *time.Time
 	description          *string
@@ -115,12 +115,12 @@ func (m *PostMutation) ResetTitle() {
 }
 
 // SetTitleTranslations sets the title_translations field.
-func (m *PostMutation) SetTitleTranslations(st schema.TitleTranslations) {
-	m.title_translations = &st
+func (m *PostMutation) SetTitleTranslations(s schema.Translations) {
+	m.title_translations = &s
 }
 
 // TitleTranslations returns the title_translations value in the mutation.
-func (m *PostMutation) TitleTranslations() (r schema.TitleTranslations, exists bool) {
+func (m *PostMutation) TitleTranslations() (r schema.Translations, exists bool) {
 	v := m.title_translations
 	if v == nil {
 		return
@@ -166,12 +166,12 @@ func (m *PostMutation) ResetSubject() {
 }
 
 // SetSubjectTranslations sets the subject_translations field.
-func (m *PostMutation) SetSubjectTranslations(st schema.SubjectTranslations) {
-	m.subject_translations = &st
+func (m *PostMutation) SetSubjectTranslations(s schema.Translations) {
+	m.subject_translations = &s
 }
 
 // SubjectTranslations returns the subject_translations value in the mutation.
-func (m *PostMutation) SubjectTranslations() (r schema.SubjectTranslations, exists bool) {
+func (m *PostMutation) SubjectTranslations() (r schema.Translations, exists bool) {
 	v := m.subject_translations
 	if v == nil {
 		return
@@ -179,9 +179,22 @@ func (m *PostMutation) SubjectTranslations() (r schema.SubjectTranslations, exis
 	return *v, true
 }
 
+// ClearSubjectTranslations clears the value of subject_translations.
+func (m *PostMutation) ClearSubjectTranslations() {
+	m.subject_translations = nil
+	m.clearedFields[post.FieldSubjectTranslations] = struct{}{}
+}
+
+// SubjectTranslationsCleared returns if the field subject_translations was cleared in this mutation.
+func (m *PostMutation) SubjectTranslationsCleared() bool {
+	_, ok := m.clearedFields[post.FieldSubjectTranslations]
+	return ok
+}
+
 // ResetSubjectTranslations reset all changes of the subject_translations field.
 func (m *PostMutation) ResetSubjectTranslations() {
 	m.subject_translations = nil
+	delete(m.clearedFields, post.FieldSubjectTranslations)
 }
 
 // SetURL sets the url field.
@@ -350,10 +363,24 @@ func (m *PostMutation) AddedUpdatedBy() (r int, exists bool) {
 	return *v, true
 }
 
+// ClearUpdatedBy clears the value of updated_by.
+func (m *PostMutation) ClearUpdatedBy() {
+	m.updated_by = nil
+	m.addupdated_by = nil
+	m.clearedFields[post.FieldUpdatedBy] = struct{}{}
+}
+
+// UpdatedByCleared returns if the field updated_by was cleared in this mutation.
+func (m *PostMutation) UpdatedByCleared() bool {
+	_, ok := m.clearedFields[post.FieldUpdatedBy]
+	return ok
+}
+
 // ResetUpdatedBy reset all changes of the updated_by field.
 func (m *PostMutation) ResetUpdatedBy() {
 	m.updated_by = nil
 	m.addupdated_by = nil
+	delete(m.clearedFields, post.FieldUpdatedBy)
 }
 
 // SetSourceID sets the source edge to Source by id.
@@ -495,7 +522,7 @@ func (m *PostMutation) SetField(name string, value ent.Value) error {
 		m.SetTitle(v)
 		return nil
 	case post.FieldTitleTranslations:
-		v, ok := value.(schema.TitleTranslations)
+		v, ok := value.(schema.Translations)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
@@ -509,7 +536,7 @@ func (m *PostMutation) SetField(name string, value ent.Value) error {
 		m.SetSubject(v)
 		return nil
 	case post.FieldSubjectTranslations:
-		v, ok := value.(schema.SubjectTranslations)
+		v, ok := value.(schema.Translations)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
@@ -619,6 +646,12 @@ func (m *PostMutation) ClearedFields() []string {
 	if m.FieldCleared(post.FieldSubject) {
 		fields = append(fields, post.FieldSubject)
 	}
+	if m.FieldCleared(post.FieldSubjectTranslations) {
+		fields = append(fields, post.FieldSubjectTranslations)
+	}
+	if m.FieldCleared(post.FieldUpdatedBy) {
+		fields = append(fields, post.FieldUpdatedBy)
+	}
 	return fields
 }
 
@@ -635,6 +668,12 @@ func (m *PostMutation) ClearField(name string) error {
 	switch name {
 	case post.FieldSubject:
 		m.ClearSubject()
+		return nil
+	case post.FieldSubjectTranslations:
+		m.ClearSubjectTranslations()
+		return nil
+	case post.FieldUpdatedBy:
+		m.ClearUpdatedBy()
 		return nil
 	}
 	return fmt.Errorf("unknown Post nullable field %s", name)
@@ -782,6 +821,8 @@ type SourceMutation struct {
 	removedchildren map[int]struct{}
 	posts           map[int]struct{}
 	removedposts    map[int]struct{}
+	users           map[int]struct{}
+	removedusers    map[int]struct{}
 }
 
 var _ ent.Mutation = (*SourceMutation)(nil)
@@ -1004,6 +1045,48 @@ func (m *SourceMutation) ResetPosts() {
 	m.removedposts = nil
 }
 
+// AddUserIDs adds the users edge to User by ids.
+func (m *SourceMutation) AddUserIDs(ids ...int) {
+	if m.users == nil {
+		m.users = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.users[ids[i]] = struct{}{}
+	}
+}
+
+// RemoveUserIDs removes the users edge to User by ids.
+func (m *SourceMutation) RemoveUserIDs(ids ...int) {
+	if m.removedusers == nil {
+		m.removedusers = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.removedusers[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedUsers returns the removed ids of users.
+func (m *SourceMutation) RemovedUsersIDs() (ids []int) {
+	for id := range m.removedusers {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// UsersIDs returns the users ids in the mutation.
+func (m *SourceMutation) UsersIDs() (ids []int) {
+	for id := range m.users {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetUsers reset all changes of the users edge.
+func (m *SourceMutation) ResetUsers() {
+	m.users = nil
+	m.removedusers = nil
+}
+
 // Op returns the operation name.
 func (m *SourceMutation) Op() Op {
 	return m.op
@@ -1138,7 +1221,7 @@ func (m *SourceMutation) ResetField(name string) error {
 // AddedEdges returns all edge names that were set/added in this
 // mutation.
 func (m *SourceMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.parent != nil {
 		edges = append(edges, source.EdgeParent)
 	}
@@ -1147,6 +1230,9 @@ func (m *SourceMutation) AddedEdges() []string {
 	}
 	if m.posts != nil {
 		edges = append(edges, source.EdgePosts)
+	}
+	if m.users != nil {
+		edges = append(edges, source.EdgeUsers)
 	}
 	return edges
 }
@@ -1171,6 +1257,12 @@ func (m *SourceMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case source.EdgeUsers:
+		ids := make([]ent.Value, 0, len(m.users))
+		for id := range m.users {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
@@ -1178,12 +1270,15 @@ func (m *SourceMutation) AddedIDs(name string) []ent.Value {
 // RemovedEdges returns all edge names that were removed in this
 // mutation.
 func (m *SourceMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.removedchildren != nil {
 		edges = append(edges, source.EdgeChildren)
 	}
 	if m.removedposts != nil {
 		edges = append(edges, source.EdgePosts)
+	}
+	if m.removedusers != nil {
+		edges = append(edges, source.EdgeUsers)
 	}
 	return edges
 }
@@ -1204,6 +1299,12 @@ func (m *SourceMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case source.EdgeUsers:
+		ids := make([]ent.Value, 0, len(m.removedusers))
+		for id := range m.removedusers {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
@@ -1211,7 +1312,7 @@ func (m *SourceMutation) RemovedIDs(name string) []ent.Value {
 // ClearedEdges returns all edge names that were cleared in this
 // mutation.
 func (m *SourceMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.clearedparent {
 		edges = append(edges, source.EdgeParent)
 	}
@@ -1253,6 +1354,9 @@ func (m *SourceMutation) ResetEdge(name string) error {
 	case source.EdgePosts:
 		m.ResetPosts()
 		return nil
+	case source.EdgeUsers:
+		m.ResetUsers()
+		return nil
 	}
 	return fmt.Errorf("unknown Source edge %s", name)
 }
@@ -1271,6 +1375,8 @@ type UserMutation struct {
 	clearedFields   map[string]struct{}
 	settings        *int
 	clearedsettings bool
+	sources         map[int]struct{}
+	removedsources  map[int]struct{}
 }
 
 var _ ent.Mutation = (*UserMutation)(nil)
@@ -1455,6 +1561,48 @@ func (m *UserMutation) ResetSettings() {
 	m.clearedsettings = false
 }
 
+// AddSourceIDs adds the sources edge to Source by ids.
+func (m *UserMutation) AddSourceIDs(ids ...int) {
+	if m.sources == nil {
+		m.sources = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.sources[ids[i]] = struct{}{}
+	}
+}
+
+// RemoveSourceIDs removes the sources edge to Source by ids.
+func (m *UserMutation) RemoveSourceIDs(ids ...int) {
+	if m.removedsources == nil {
+		m.removedsources = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.removedsources[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedSources returns the removed ids of sources.
+func (m *UserMutation) RemovedSourcesIDs() (ids []int) {
+	for id := range m.removedsources {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// SourcesIDs returns the sources ids in the mutation.
+func (m *UserMutation) SourcesIDs() (ids []int) {
+	for id := range m.sources {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetSources reset all changes of the sources edge.
+func (m *UserMutation) ResetSources() {
+	m.sources = nil
+	m.removedsources = nil
+}
+
 // Op returns the operation name.
 func (m *UserMutation) Op() Op {
 	return m.op
@@ -1619,9 +1767,12 @@ func (m *UserMutation) ResetField(name string) error {
 // AddedEdges returns all edge names that were set/added in this
 // mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.settings != nil {
 		edges = append(edges, user.EdgeSettings)
+	}
+	if m.sources != nil {
+		edges = append(edges, user.EdgeSources)
 	}
 	return edges
 }
@@ -1634,6 +1785,12 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 		if id := m.settings; id != nil {
 			return []ent.Value{*id}
 		}
+	case user.EdgeSources:
+		ids := make([]ent.Value, 0, len(m.sources))
+		for id := range m.sources {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
@@ -1641,7 +1798,10 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 // RemovedEdges returns all edge names that were removed in this
 // mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
+	if m.removedsources != nil {
+		edges = append(edges, user.EdgeSources)
+	}
 	return edges
 }
 
@@ -1649,6 +1809,12 @@ func (m *UserMutation) RemovedEdges() []string {
 // the given edge name.
 func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 	switch name {
+	case user.EdgeSources:
+		ids := make([]ent.Value, 0, len(m.removedsources))
+		for id := range m.removedsources {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
@@ -1656,7 +1822,7 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 // ClearedEdges returns all edge names that were cleared in this
 // mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.clearedsettings {
 		edges = append(edges, user.EdgeSettings)
 	}
@@ -1691,6 +1857,9 @@ func (m *UserMutation) ResetEdge(name string) error {
 	switch name {
 	case user.EdgeSettings:
 		m.ResetSettings()
+		return nil
+	case user.EdgeSources:
+		m.ResetSources()
 		return nil
 	}
 	return fmt.Errorf("unknown User edge %s", name)

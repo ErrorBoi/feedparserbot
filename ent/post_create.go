@@ -29,8 +29,8 @@ func (pc *PostCreate) SetTitle(s string) *PostCreate {
 }
 
 // SetTitleTranslations sets the title_translations field.
-func (pc *PostCreate) SetTitleTranslations(st schema.TitleTranslations) *PostCreate {
-	pc.mutation.SetTitleTranslations(st)
+func (pc *PostCreate) SetTitleTranslations(s schema.Translations) *PostCreate {
+	pc.mutation.SetTitleTranslations(s)
 	return pc
 }
 
@@ -49,8 +49,16 @@ func (pc *PostCreate) SetNillableSubject(s *string) *PostCreate {
 }
 
 // SetSubjectTranslations sets the subject_translations field.
-func (pc *PostCreate) SetSubjectTranslations(st schema.SubjectTranslations) *PostCreate {
-	pc.mutation.SetSubjectTranslations(st)
+func (pc *PostCreate) SetSubjectTranslations(s schema.Translations) *PostCreate {
+	pc.mutation.SetSubjectTranslations(s)
+	return pc
+}
+
+// SetNillableSubjectTranslations sets the subject_translations field if the given value is not nil.
+func (pc *PostCreate) SetNillableSubjectTranslations(s *schema.Translations) *PostCreate {
+	if s != nil {
+		pc.SetSubjectTranslations(*s)
+	}
 	return pc
 }
 
@@ -118,6 +126,14 @@ func (pc *PostCreate) SetUpdatedBy(i int) *PostCreate {
 	return pc
 }
 
+// SetNillableUpdatedBy sets the updated_by field if the given value is not nil.
+func (pc *PostCreate) SetNillableUpdatedBy(i *int) *PostCreate {
+	if i != nil {
+		pc.SetUpdatedBy(*i)
+	}
+	return pc
+}
+
 // SetSourceID sets the source edge to Source by id.
 func (pc *PostCreate) SetSourceID(id int) *PostCreate {
 	pc.mutation.SetSourceID(id)
@@ -145,9 +161,6 @@ func (pc *PostCreate) Save(ctx context.Context) (*Post, error) {
 	if _, ok := pc.mutation.TitleTranslations(); !ok {
 		return nil, errors.New("ent: missing required field \"title_translations\"")
 	}
-	if _, ok := pc.mutation.SubjectTranslations(); !ok {
-		return nil, errors.New("ent: missing required field \"subject_translations\"")
-	}
 	if _, ok := pc.mutation.URL(); !ok {
 		return nil, errors.New("ent: missing required field \"url\"")
 	}
@@ -170,9 +183,6 @@ func (pc *PostCreate) Save(ctx context.Context) (*Post, error) {
 	if _, ok := pc.mutation.UpdatedAt(); !ok {
 		v := post.DefaultUpdatedAt()
 		pc.mutation.SetUpdatedAt(v)
-	}
-	if _, ok := pc.mutation.UpdatedBy(); !ok {
-		return nil, errors.New("ent: missing required field \"updated_by\"")
 	}
 	var (
 		err  error
@@ -314,7 +324,7 @@ func (pc *PostCreate) sqlSave(ctx context.Context) (*Post, error) {
 			Value:  value,
 			Column: post.FieldUpdatedBy,
 		})
-		po.UpdatedBy = value
+		po.UpdatedBy = &value
 	}
 	if nodes := pc.mutation.SourceIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

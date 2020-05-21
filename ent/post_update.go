@@ -37,8 +37,8 @@ func (pu *PostUpdate) SetTitle(s string) *PostUpdate {
 }
 
 // SetTitleTranslations sets the title_translations field.
-func (pu *PostUpdate) SetTitleTranslations(st schema.TitleTranslations) *PostUpdate {
-	pu.mutation.SetTitleTranslations(st)
+func (pu *PostUpdate) SetTitleTranslations(s schema.Translations) *PostUpdate {
+	pu.mutation.SetTitleTranslations(s)
 	return pu
 }
 
@@ -63,8 +63,22 @@ func (pu *PostUpdate) ClearSubject() *PostUpdate {
 }
 
 // SetSubjectTranslations sets the subject_translations field.
-func (pu *PostUpdate) SetSubjectTranslations(st schema.SubjectTranslations) *PostUpdate {
-	pu.mutation.SetSubjectTranslations(st)
+func (pu *PostUpdate) SetSubjectTranslations(s schema.Translations) *PostUpdate {
+	pu.mutation.SetSubjectTranslations(s)
+	return pu
+}
+
+// SetNillableSubjectTranslations sets the subject_translations field if the given value is not nil.
+func (pu *PostUpdate) SetNillableSubjectTranslations(s *schema.Translations) *PostUpdate {
+	if s != nil {
+		pu.SetSubjectTranslations(*s)
+	}
+	return pu
+}
+
+// ClearSubjectTranslations clears the value of subject_translations.
+func (pu *PostUpdate) ClearSubjectTranslations() *PostUpdate {
+	pu.mutation.ClearSubjectTranslations()
 	return pu
 }
 
@@ -125,9 +139,23 @@ func (pu *PostUpdate) SetUpdatedBy(i int) *PostUpdate {
 	return pu
 }
 
+// SetNillableUpdatedBy sets the updated_by field if the given value is not nil.
+func (pu *PostUpdate) SetNillableUpdatedBy(i *int) *PostUpdate {
+	if i != nil {
+		pu.SetUpdatedBy(*i)
+	}
+	return pu
+}
+
 // AddUpdatedBy adds i to updated_by.
 func (pu *PostUpdate) AddUpdatedBy(i int) *PostUpdate {
 	pu.mutation.AddUpdatedBy(i)
+	return pu
+}
+
+// ClearUpdatedBy clears the value of updated_by.
+func (pu *PostUpdate) ClearUpdatedBy() *PostUpdate {
+	pu.mutation.ClearUpdatedBy()
 	return pu
 }
 
@@ -263,6 +291,12 @@ func (pu *PostUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Column: post.FieldSubjectTranslations,
 		})
 	}
+	if pu.mutation.SubjectTranslationsCleared() {
+		_spec.Fields.Clear = append(_spec.Fields.Clear, &sqlgraph.FieldSpec{
+			Type:   field.TypeJSON,
+			Column: post.FieldSubjectTranslations,
+		})
+	}
 	if value, ok := pu.mutation.URL(); ok {
 		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
 			Type:   field.TypeString,
@@ -326,6 +360,12 @@ func (pu *PostUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Column: post.FieldUpdatedBy,
 		})
 	}
+	if pu.mutation.UpdatedByCleared() {
+		_spec.Fields.Clear = append(_spec.Fields.Clear, &sqlgraph.FieldSpec{
+			Type:   field.TypeInt,
+			Column: post.FieldUpdatedBy,
+		})
+	}
 	if pu.mutation.SourceCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -386,8 +426,8 @@ func (puo *PostUpdateOne) SetTitle(s string) *PostUpdateOne {
 }
 
 // SetTitleTranslations sets the title_translations field.
-func (puo *PostUpdateOne) SetTitleTranslations(st schema.TitleTranslations) *PostUpdateOne {
-	puo.mutation.SetTitleTranslations(st)
+func (puo *PostUpdateOne) SetTitleTranslations(s schema.Translations) *PostUpdateOne {
+	puo.mutation.SetTitleTranslations(s)
 	return puo
 }
 
@@ -412,8 +452,22 @@ func (puo *PostUpdateOne) ClearSubject() *PostUpdateOne {
 }
 
 // SetSubjectTranslations sets the subject_translations field.
-func (puo *PostUpdateOne) SetSubjectTranslations(st schema.SubjectTranslations) *PostUpdateOne {
-	puo.mutation.SetSubjectTranslations(st)
+func (puo *PostUpdateOne) SetSubjectTranslations(s schema.Translations) *PostUpdateOne {
+	puo.mutation.SetSubjectTranslations(s)
+	return puo
+}
+
+// SetNillableSubjectTranslations sets the subject_translations field if the given value is not nil.
+func (puo *PostUpdateOne) SetNillableSubjectTranslations(s *schema.Translations) *PostUpdateOne {
+	if s != nil {
+		puo.SetSubjectTranslations(*s)
+	}
+	return puo
+}
+
+// ClearSubjectTranslations clears the value of subject_translations.
+func (puo *PostUpdateOne) ClearSubjectTranslations() *PostUpdateOne {
+	puo.mutation.ClearSubjectTranslations()
 	return puo
 }
 
@@ -474,9 +528,23 @@ func (puo *PostUpdateOne) SetUpdatedBy(i int) *PostUpdateOne {
 	return puo
 }
 
+// SetNillableUpdatedBy sets the updated_by field if the given value is not nil.
+func (puo *PostUpdateOne) SetNillableUpdatedBy(i *int) *PostUpdateOne {
+	if i != nil {
+		puo.SetUpdatedBy(*i)
+	}
+	return puo
+}
+
 // AddUpdatedBy adds i to updated_by.
 func (puo *PostUpdateOne) AddUpdatedBy(i int) *PostUpdateOne {
 	puo.mutation.AddUpdatedBy(i)
+	return puo
+}
+
+// ClearUpdatedBy clears the value of updated_by.
+func (puo *PostUpdateOne) ClearUpdatedBy() *PostUpdateOne {
+	puo.mutation.ClearUpdatedBy()
 	return puo
 }
 
@@ -610,6 +678,12 @@ func (puo *PostUpdateOne) sqlSave(ctx context.Context) (po *Post, err error) {
 			Column: post.FieldSubjectTranslations,
 		})
 	}
+	if puo.mutation.SubjectTranslationsCleared() {
+		_spec.Fields.Clear = append(_spec.Fields.Clear, &sqlgraph.FieldSpec{
+			Type:   field.TypeJSON,
+			Column: post.FieldSubjectTranslations,
+		})
+	}
 	if value, ok := puo.mutation.URL(); ok {
 		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
 			Type:   field.TypeString,
@@ -670,6 +744,12 @@ func (puo *PostUpdateOne) sqlSave(ctx context.Context) (po *Post, err error) {
 		_spec.Fields.Add = append(_spec.Fields.Add, &sqlgraph.FieldSpec{
 			Type:   field.TypeInt,
 			Value:  value,
+			Column: post.FieldUpdatedBy,
+		})
+	}
+	if puo.mutation.UpdatedByCleared() {
+		_spec.Fields.Clear = append(_spec.Fields.Clear, &sqlgraph.FieldSpec{
+			Type:   field.TypeInt,
 			Column: post.FieldUpdatedBy,
 		})
 	}

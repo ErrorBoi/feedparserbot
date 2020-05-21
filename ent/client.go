@@ -361,6 +361,22 @@ func (c *SourceClient) QueryPosts(s *Source) *PostQuery {
 	return query
 }
 
+// QueryUsers queries the users edge of a Source.
+func (c *SourceClient) QueryUsers(s *Source) *UserQuery {
+	query := &UserQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := s.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(source.Table, source.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, source.UsersTable, source.UsersPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(s.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *SourceClient) Hooks() []Hook {
 	return c.hooks.Source
@@ -453,6 +469,22 @@ func (c *UserClient) QuerySettings(u *User) *UserSettingsQuery {
 			sqlgraph.From(user.Table, user.FieldID, id),
 			sqlgraph.To(usersettings.Table, usersettings.FieldID),
 			sqlgraph.Edge(sqlgraph.O2O, false, user.SettingsTable, user.SettingsColumn),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySources queries the sources edge of a User.
+func (c *UserClient) QuerySources(u *User) *SourceQuery {
+	query := &SourceQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(source.Table, source.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, user.SourcesTable, user.SourcesPrimaryKey...),
 		)
 		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
 		return fromV, nil

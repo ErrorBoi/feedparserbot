@@ -9,6 +9,7 @@ import (
 
 	"github.com/ErrorBoi/feedparserbot/ent/post"
 	"github.com/ErrorBoi/feedparserbot/ent/source"
+	"github.com/ErrorBoi/feedparserbot/ent/user"
 	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
 	"github.com/facebookincubator/ent/schema/field"
 )
@@ -93,6 +94,21 @@ func (sc *SourceCreate) AddPosts(p ...*Post) *SourceCreate {
 		ids[i] = p[i].ID
 	}
 	return sc.AddPostIDs(ids...)
+}
+
+// AddUserIDs adds the users edge to User by ids.
+func (sc *SourceCreate) AddUserIDs(ids ...int) *SourceCreate {
+	sc.mutation.AddUserIDs(ids...)
+	return sc
+}
+
+// AddUsers adds the users edges to User.
+func (sc *SourceCreate) AddUsers(u ...*User) *SourceCreate {
+	ids := make([]int, len(u))
+	for i := range u {
+		ids[i] = u[i].ID
+	}
+	return sc.AddUserIDs(ids...)
 }
 
 // Save creates the Source in the database.
@@ -231,6 +247,25 @@ func (sc *SourceCreate) sqlSave(ctx context.Context) (*Source, error) {
 				IDSpec: &sqlgraph.FieldSpec{
 					Type:   field.TypeInt,
 					Column: post.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := sc.mutation.UsersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   source.UsersTable,
+			Columns: source.UsersPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: user.FieldID,
 				},
 			},
 		}

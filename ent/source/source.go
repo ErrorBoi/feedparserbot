@@ -21,6 +21,8 @@ const (
 	EdgeChildren = "children"
 	// EdgePosts holds the string denoting the posts edge name in mutations.
 	EdgePosts = "posts"
+	// EdgeUsers holds the string denoting the users edge name in mutations.
+	EdgeUsers = "users"
 
 	// Table holds the table name of the source in the database.
 	Table = "sources"
@@ -39,6 +41,11 @@ const (
 	PostsInverseTable = "posts"
 	// PostsColumn is the table column denoting the posts relation/edge.
 	PostsColumn = "source_posts"
+	// UsersTable is the table the holds the users relation/edge. The primary key declared below.
+	UsersTable = "user_sources"
+	// UsersInverseTable is the table name for the User entity.
+	// It exists in this package in order to avoid circular dependency with the "user" package.
+	UsersInverseTable = "users"
 )
 
 // Columns holds all SQL columns for source fields.
@@ -53,6 +60,12 @@ var Columns = []string{
 var ForeignKeys = []string{
 	"source_children",
 }
+
+var (
+	// UsersPrimaryKey and UsersColumn2 are the table columns denoting the
+	// primary key for the users relation (M2M).
+	UsersPrimaryKey = []string{"user_id", "source_id"}
+)
 
 var ()
 

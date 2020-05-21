@@ -30,5 +30,6 @@ func (User) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("settings", UserSettings.Type).
 			Unique(),
+		edge.To("sources", Source.Type),
 	}
 }

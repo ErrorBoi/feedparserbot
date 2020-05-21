@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ErrorBoi/feedparserbot/ent/source"
 	"github.com/ErrorBoi/feedparserbot/ent/user"
 	"github.com/ErrorBoi/feedparserbot/ent/usersettings"
 	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
@@ -71,6 +72,21 @@ func (uc *UserCreate) SetNillableSettingsID(id *int) *UserCreate {
 // SetSettings sets the settings edge to UserSettings.
 func (uc *UserCreate) SetSettings(u *UserSettings) *UserCreate {
 	return uc.SetSettingsID(u.ID)
+}
+
+// AddSourceIDs adds the sources edge to Source by ids.
+func (uc *UserCreate) AddSourceIDs(ids ...int) *UserCreate {
+	uc.mutation.AddSourceIDs(ids...)
+	return uc
+}
+
+// AddSources adds the sources edges to Source.
+func (uc *UserCreate) AddSources(s ...*Source) *UserCreate {
+	ids := make([]int, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return uc.AddSourceIDs(ids...)
 }
 
 // Save creates the User in the database.
@@ -159,6 +175,25 @@ func (uc *UserCreate) sqlSave(ctx context.Context) (*User, error) {
 				IDSpec: &sqlgraph.FieldSpec{
 					Type:   field.TypeInt,
 					Column: usersettings.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := uc.mutation.SourcesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   user.SourcesTable,
+			Columns: user.SourcesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: source.FieldID,
 				},
 			},
 		}

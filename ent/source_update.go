@@ -9,6 +9,7 @@ import (
 	"github.com/ErrorBoi/feedparserbot/ent/post"
 	"github.com/ErrorBoi/feedparserbot/ent/predicate"
 	"github.com/ErrorBoi/feedparserbot/ent/source"
+	"github.com/ErrorBoi/feedparserbot/ent/user"
 	"github.com/facebookincubator/ent/dialect/sql"
 	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
 	"github.com/facebookincubator/ent/schema/field"
@@ -103,6 +104,21 @@ func (su *SourceUpdate) AddPosts(p ...*Post) *SourceUpdate {
 	return su.AddPostIDs(ids...)
 }
 
+// AddUserIDs adds the users edge to User by ids.
+func (su *SourceUpdate) AddUserIDs(ids ...int) *SourceUpdate {
+	su.mutation.AddUserIDs(ids...)
+	return su
+}
+
+// AddUsers adds the users edges to User.
+func (su *SourceUpdate) AddUsers(u ...*User) *SourceUpdate {
+	ids := make([]int, len(u))
+	for i := range u {
+		ids[i] = u[i].ID
+	}
+	return su.AddUserIDs(ids...)
+}
+
 // ClearParent clears the parent edge to Source.
 func (su *SourceUpdate) ClearParent() *SourceUpdate {
 	su.mutation.ClearParent()
@@ -137,6 +153,21 @@ func (su *SourceUpdate) RemovePosts(p ...*Post) *SourceUpdate {
 		ids[i] = p[i].ID
 	}
 	return su.RemovePostIDs(ids...)
+}
+
+// RemoveUserIDs removes the users edge to User by ids.
+func (su *SourceUpdate) RemoveUserIDs(ids ...int) *SourceUpdate {
+	su.mutation.RemoveUserIDs(ids...)
+	return su
+}
+
+// RemoveUsers removes users edges to User.
+func (su *SourceUpdate) RemoveUsers(u ...*User) *SourceUpdate {
+	ids := make([]int, len(u))
+	for i := range u {
+		ids[i] = u[i].ID
+	}
+	return su.RemoveUserIDs(ids...)
 }
 
 // Save executes the query and returns the number of rows/vertices matched by this operation.
@@ -345,6 +376,44 @@ func (su *SourceUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if nodes := su.mutation.RemovedUsersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   source.UsersTable,
+			Columns: source.UsersPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: user.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := su.mutation.UsersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   source.UsersTable,
+			Columns: source.UsersPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: user.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, su.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{source.Label}
@@ -438,6 +507,21 @@ func (suo *SourceUpdateOne) AddPosts(p ...*Post) *SourceUpdateOne {
 	return suo.AddPostIDs(ids...)
 }
 
+// AddUserIDs adds the users edge to User by ids.
+func (suo *SourceUpdateOne) AddUserIDs(ids ...int) *SourceUpdateOne {
+	suo.mutation.AddUserIDs(ids...)
+	return suo
+}
+
+// AddUsers adds the users edges to User.
+func (suo *SourceUpdateOne) AddUsers(u ...*User) *SourceUpdateOne {
+	ids := make([]int, len(u))
+	for i := range u {
+		ids[i] = u[i].ID
+	}
+	return suo.AddUserIDs(ids...)
+}
+
 // ClearParent clears the parent edge to Source.
 func (suo *SourceUpdateOne) ClearParent() *SourceUpdateOne {
 	suo.mutation.ClearParent()
@@ -472,6 +556,21 @@ func (suo *SourceUpdateOne) RemovePosts(p ...*Post) *SourceUpdateOne {
 		ids[i] = p[i].ID
 	}
 	return suo.RemovePostIDs(ids...)
+}
+
+// RemoveUserIDs removes the users edge to User by ids.
+func (suo *SourceUpdateOne) RemoveUserIDs(ids ...int) *SourceUpdateOne {
+	suo.mutation.RemoveUserIDs(ids...)
+	return suo
+}
+
+// RemoveUsers removes users edges to User.
+func (suo *SourceUpdateOne) RemoveUsers(u ...*User) *SourceUpdateOne {
+	ids := make([]int, len(u))
+	for i := range u {
+		ids[i] = u[i].ID
+	}
+	return suo.RemoveUserIDs(ids...)
 }
 
 // Save executes the query and returns the updated entity.
@@ -670,6 +769,44 @@ func (suo *SourceUpdateOne) sqlSave(ctx context.Context) (s *Source, err error) 
 				IDSpec: &sqlgraph.FieldSpec{
 					Type:   field.TypeInt,
 					Column: post.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if nodes := suo.mutation.RemovedUsersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   source.UsersTable,
+			Columns: source.UsersPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: user.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := suo.mutation.UsersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   source.UsersTable,
+			Columns: source.UsersPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: user.FieldID,
 				},
 			},
 		}

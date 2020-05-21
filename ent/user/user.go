@@ -13,6 +13,8 @@ const (
 
 	// EdgeSettings holds the string denoting the settings edge name in mutations.
 	EdgeSettings = "settings"
+	// EdgeSources holds the string denoting the sources edge name in mutations.
+	EdgeSources = "sources"
 
 	// Table holds the table name of the user in the database.
 	Table = "users"
@@ -23,6 +25,11 @@ const (
 	SettingsInverseTable = "user_settings"
 	// SettingsColumn is the table column denoting the settings relation/edge.
 	SettingsColumn = "user_settings"
+	// SourcesTable is the table the holds the sources relation/edge. The primary key declared below.
+	SourcesTable = "user_sources"
+	// SourcesInverseTable is the table name for the Source entity.
+	// It exists in this package in order to avoid circular dependency with the "source" package.
+	SourcesInverseTable = "sources"
 )
 
 // Columns holds all SQL columns for user fields.
@@ -32,3 +39,9 @@ var Columns = []string{
 	FieldTgID,
 	FieldPaymentInfo,
 }
+
+var (
+	// SourcesPrimaryKey and SourcesColumn2 are the table columns denoting the
+	// primary key for the sources relation (M2M).
+	SourcesPrimaryKey = []string{"user_id", "source_id"}
+)

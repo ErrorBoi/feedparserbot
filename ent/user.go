@@ -31,9 +31,11 @@ type User struct {
 type UserEdges struct {
 	// Settings holds the value of the settings edge.
 	Settings *UserSettings
+	// Sources holds the value of the sources edge.
+	Sources []*Source
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
 }
 
 // SettingsOrErr returns the Settings value or an error if the edge
@@ -48,6 +50,15 @@ func (e UserEdges) SettingsOrErr() (*UserSettings, error) {
 		return e.Settings, nil
 	}
 	return nil, &NotLoadedError{edge: "settings"}
+}
+
+// SourcesOrErr returns the Sources value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) SourcesOrErr() ([]*Source, error) {
+	if e.loadedTypes[1] {
+		return e.Sources, nil
+	}
+	return nil, &NotLoadedError{edge: "sources"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -95,6 +106,11 @@ func (u *User) assignValues(values ...interface{}) error {
 // QuerySettings queries the settings edge of the User.
 func (u *User) QuerySettings() *UserSettingsQuery {
 	return (&UserClient{config: u.config}).QuerySettings(u)
+}
+
+// QuerySources queries the sources edge of the User.
+func (u *User) QuerySources() *SourceQuery {
+	return (&UserClient{config: u.config}).QuerySources(u)
 }
 
 // Update returns a builder for updating this User.

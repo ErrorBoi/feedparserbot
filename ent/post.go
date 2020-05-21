@@ -22,11 +22,11 @@ type Post struct {
 	// Title holds the value of the "title" field.
 	Title string `json:"title,omitempty"`
 	// TitleTranslations holds the value of the "title_translations" field.
-	TitleTranslations schema.TitleTranslations `json:"title_translations,omitempty"`
+	TitleTranslations schema.Translations `json:"title_translations,omitempty"`
 	// Subject holds the value of the "subject" field.
 	Subject *string `json:"subject,omitempty"`
 	// SubjectTranslations holds the value of the "subject_translations" field.
-	SubjectTranslations schema.SubjectTranslations `json:"subject_translations,omitempty"`
+	SubjectTranslations schema.Translations `json:"subject_translations,omitempty"`
 	// URL holds the value of the "url" field.
 	URL string `json:"url,omitempty"`
 	// PublishedAt holds the value of the "published_at" field.
@@ -42,7 +42,7 @@ type Post struct {
 	// UpdatedAt holds the value of the "updated_at" field.
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
 	// UpdatedBy holds the value of the "updated_by" field.
-	UpdatedBy int `json:"updated_by,omitempty"`
+	UpdatedBy *int `json:"updated_by,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the PostQuery when eager-loading is set.
 	Edges        PostEdges `json:"edges"`
@@ -175,7 +175,8 @@ func (po *Post) assignValues(values ...interface{}) error {
 	if value, ok := values[11].(*sql.NullInt64); !ok {
 		return fmt.Errorf("unexpected type %T for field updated_by", values[11])
 	} else if value.Valid {
-		po.UpdatedBy = int(value.Int64)
+		po.UpdatedBy = new(int)
+		*po.UpdatedBy = int(value.Int64)
 	}
 	values = values[12:]
 	if len(values) == len(post.ForeignKeys) {
@@ -241,8 +242,10 @@ func (po *Post) String() string {
 	builder.WriteString(po.CreatedAt.Format(time.ANSIC))
 	builder.WriteString(", updated_at=")
 	builder.WriteString(po.UpdatedAt.Format(time.ANSIC))
-	builder.WriteString(", updated_by=")
-	builder.WriteString(fmt.Sprintf("%v", po.UpdatedBy))
+	if v := po.UpdatedBy; v != nil {
+		builder.WriteString(", updated_by=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

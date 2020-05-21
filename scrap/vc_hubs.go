@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	vcSubsLink   = "https://vc.ru/subs"
+	vcHubsLink   = "https://vc.ru/subs"
 	vcSourceLink = "https://vc.ru/rss/all"
 )
 
@@ -25,8 +25,6 @@ func VCHubs(cli *ent.Client) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("HUBS ACHTUNG:")
-	fmt.Println(hubs)
 
 	err = storeVCHubs(cli, hubs)
 
@@ -48,23 +46,11 @@ func getVCHubs(collector *colly.Collector) ([]string, error) {
 				if !(strings.HasPrefix(href, "https://vc.ru/u/") || strings.HasPrefix(href, "https://vc.ru/s/")) {
 					hubs = append(hubs, strings.TrimPrefix(href, "https://vc.ru/"))
 				}
-
-				fmt.Printf("Link: %s. Title: %s\n", element.Attr("href"), element.ChildText("span"))
-
-				//if strings.TrimSpace(element.Text) != "" {
-				//	//ctx, cancel := context.WithTimeout(context.Background(), utils.WriteTimeout)
-				//	//defer cancel()
-				//
-				//
-				//
-				//	fmt.Printf("HTML Element's text is %s\n", element.Text)
-				//}
 			})
 		fmt.Println("Hubs counter: ", counter)
-		//colly.NewHTMLElementFromSelectionNode()
 	})
 
-	err := collector.Visit(vcSubsLink)
+	err := collector.Visit(vcHubsLink)
 	if err != nil {
 		return nil, err
 	}
@@ -75,9 +61,6 @@ func getVCHubs(collector *colly.Collector) ([]string, error) {
 func storeVCHubs(cli *ent.Client, hubs []string) error {
 	fmt.Println("Starting storing VC hubs")
 	fmt.Printf("We have %d hubs to be checked\n", len(hubs))
-
-	//ctx, cancel := context.WithTimeout(context.Background(), utils.WriteTimeout)
-	//defer cancel()
 
 	VCSource, err := cli.Source.Query().Where(source.URL(vcSourceLink)).Only(context.Background())
 	if err != nil {
@@ -90,7 +73,6 @@ func storeVCHubs(cli *ent.Client, hubs []string) error {
 		collector := colly.NewCollector()
 
 		link := "https://vc.ru/rss/" + hub
-		fmt.Println("Visiting hub ", link)
 
 		collector.OnXML("/rss/channel", func(e *colly.XMLElement) {
 			title := e.ChildText("/title")
@@ -104,27 +86,16 @@ func storeVCHubs(cli *ent.Client, hubs []string) error {
 				lang = "ru"
 			}
 
-			//ctx, cancel := context.WithTimeout(context.Background(), utils.WriteTimeout)
-			//defer cancel()
-
 			_, err = cli.Source.Create().SetURL(link).SetTitle(title).SetLanguage(source.Language(lang)).SetParent(VCSource).Save(context.Background())
 			if err != nil {
-				fmt.Println("ERROR CREATING SOURCE: ", err.Error())
-			} else {
-				fmt.Println("Stored hub ", link)
+				fmt.Println("Error storing source: ", err.Error())
 			}
 			counter++
 		})
-		if err != nil {
-			fmt.Println(err)
-		}
 
-		err = collector.Visit(link)
-		if err != nil {
-			fmt.Println(err)
-		}
+		collector.Visit(link)
 
-		time.Sleep(1*time.Second)
+		time.Sleep(500 * time.Millisecond)
 	}
 
 	fmt.Println("Stored hubs counter: ", counter)

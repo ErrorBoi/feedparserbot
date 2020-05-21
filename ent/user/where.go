@@ -466,6 +466,34 @@ func HasSettingsWith(preds ...predicate.UserSettings) predicate.User {
 	})
 }
 
+// HasSources applies the HasEdge predicate on the "sources" edge.
+func HasSources() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.To(SourcesTable, FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, SourcesTable, SourcesPrimaryKey...),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSourcesWith applies the HasEdge predicate on the "sources" edge with a given conditions (other predicates).
+func HasSourcesWith(preds ...predicate.Source) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.To(SourcesInverseTable, FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, SourcesTable, SourcesPrimaryKey...),
+		)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups list of predicates with the AND operator between them.
 func And(predicates ...predicate.User) predicate.User {
 	return predicate.User(func(s *sql.Selector) {
