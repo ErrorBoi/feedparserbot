@@ -75,7 +75,7 @@ func storeRBHubs(cli *ent.Client, hubs []string) error {
 		}
 		title, url := arr[0], arr[1]
 
-		_, err = cli.Source.Create().SetURL(url).SetTitle("Rusbase: "+title).SetLanguage(RBSource.Language).SetParent(RBSource).Save(context.Background())
+		_, err = cli.Source.Create().SetURL(url).SetTitle("Rusbase: " + title).SetLanguage(RBSource.Language).SetParent(RBSource).Save(context.Background())
 		if err != nil {
 			fmt.Println("Error storing source: ", err.Error())
 		}

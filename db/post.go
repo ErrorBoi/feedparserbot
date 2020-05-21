@@ -52,14 +52,28 @@ func (db *DB) StorePost(ctx context.Context, post StorePost) (*ent.Post, error) 
 		return nil, err
 	}
 
+	var description string
+	if len(post.Description) != 0 {
+		description = post.Description
+	} else {
+		description = post.Title
+	}
+
+	var h1 string
+	if len(post.H1) != 0 {
+		h1 = post.H1
+	} else {
+		h1 = post.Title
+	}
+
 	pst, err := db.Cli.Post.
 		Create().
 		SetTitle(strings.TrimSpace(post.Title)).
 		SetTitleTranslations(titleTransactions).
 		SetURL(post.Url).
 		SetPublishedAt(post.PublishedAt).
-		SetDescription(strings.TrimSpace(post.Description)).
-		SetH1(strings.TrimSpace(post.H1)).
+		SetDescription(strings.TrimSpace(description)).
+		SetH1(strings.TrimSpace(h1)).
 		SetContent(strings.TrimSpace(post.Content)).
 		SetSource(src).
 		Save(ctx)
