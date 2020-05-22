@@ -7,6 +7,7 @@ import (
 
 	"github.com/ErrorBoi/feedparserbot/ent/post"
 	"github.com/ErrorBoi/feedparserbot/ent/schema"
+	"github.com/ErrorBoi/feedparserbot/ent/usersettings"
 )
 
 // The init function reads all schema descriptors with runtime
@@ -29,4 +30,8 @@ func init() {
 	_ = sourceFields
 	usersettingsFields := schema.UserSettings{}.Fields()
 	_ = usersettingsFields
+	// usersettingsDescLastSending is the schema descriptor for last_sending field.
+	usersettingsDescLastSending := usersettingsFields[4].Descriptor()
+	// usersettings.DefaultLastSending holds the default value on creation for the last_sending field.
+	usersettings.DefaultLastSending = usersettingsDescLastSending.Default.(func() time.Time)
 }

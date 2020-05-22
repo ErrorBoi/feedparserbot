@@ -84,7 +84,7 @@ var (
 		{Name: "banned_words", Type: field.TypeJSON, Nullable: true},
 		{Name: "language", Type: field.TypeEnum, Enums: []string{"ru", "en"}, Default: "ru"},
 		{Name: "sending_frequency", Type: field.TypeEnum, Enums: []string{"instant", "1h", "4h", "am", "pm", "mon", "tue", "wed", "thu", "fri", "sat", "sun"}, Default: "instant"},
-		{Name: "last_sending", Type: field.TypeTime, Nullable: true},
+		{Name: "last_sending", Type: field.TypeTime},
 		{Name: "user_settings", Type: field.TypeInt, Unique: true, Nullable: true},
 	}
 	// UserSettingsTable holds the schema information for the "user_settings" table.

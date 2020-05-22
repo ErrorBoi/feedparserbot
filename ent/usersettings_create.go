@@ -106,6 +106,10 @@ func (usc *UserSettingsCreate) Save(ctx context.Context) (*UserSettings, error) 
 			return nil, fmt.Errorf("ent: validator failed for field \"sending_frequency\": %v", err)
 		}
 	}
+	if _, ok := usc.mutation.LastSending(); !ok {
+		v := usersettings.DefaultLastSending()
+		usc.mutation.SetLastSending(v)
+	}
 	if _, ok := usc.mutation.UserID(); !ok {
 		return nil, errors.New("ent: missing required edge \"user\"")
 	}
@@ -193,7 +197,7 @@ func (usc *UserSettingsCreate) sqlSave(ctx context.Context) (*UserSettings, erro
 			Value:  value,
 			Column: usersettings.FieldLastSending,
 		})
-		us.LastSending = &value
+		us.LastSending = value
 	}
 	if nodes := usc.mutation.UserIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

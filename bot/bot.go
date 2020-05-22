@@ -82,7 +82,17 @@ func (b *Bot) RunScheduler() {
 	fmt.Println("started scheduler")
 
 	// Parse RSS Feeds every 5 minutes
-	gocron.Every(1).Minute().Do(b.parseSources)
+	gocron.Every(5).Minute().Do(b.parseSources)
+
+	// Send posts to users with instant or <=4h sending frequency
+	gocron.Every(5).Minute().Do(b.sendPostsQuick)
+
+	//// Send posts to users with AM or PM sending frequency
+	//gocron.Every(1).Day().At("11:00").Do()
+	//gocron.Every(1).Day().At("19:00").Do()
+	//
+	//// Send posts to users with weekly sending frequency
+	//gocron.Every(1).Day().Do()
 
 	// Start all the pending jobs
 	<-gocron.Start()

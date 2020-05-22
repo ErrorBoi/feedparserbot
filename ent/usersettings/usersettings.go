@@ -4,6 +4,7 @@ package usersettings
 
 import (
 	"fmt"
+	"time"
 )
 
 const (
@@ -46,7 +47,10 @@ var ForeignKeys = []string{
 	"user_settings",
 }
 
-var ()
+var (
+	// DefaultLastSending holds the default value on creation for the last_sending field.
+	DefaultLastSending func() time.Time
+)
 
 // Language defines the type for the language enum field.
 type Language string

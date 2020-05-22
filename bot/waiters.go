@@ -6,11 +6,14 @@ import (
 	"strings"
 	"time"
 
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/mmcdole/gofeed"
 
 	"github.com/gocolly/colly"
 
 	"github.com/ErrorBoi/feedparserbot/db"
+	"github.com/ErrorBoi/feedparserbot/ent/post"
+	"github.com/ErrorBoi/feedparserbot/ent/user"
 )
 
 var sources = []string{
@@ -46,6 +49,8 @@ func (b *Bot) parseSources() {
 					h1       string
 					contents []string
 				)
+
+				// Different parsing rules depending on source
 				switch src {
 				case "https://vc.ru/rss/all":
 					collector.OnHTML("h1", func(el *colly.HTMLElement) {
@@ -85,6 +90,15 @@ func (b *Bot) parseSources() {
 						h1 = strings.TrimSpace(el.Text)
 					})
 
+					// calendar.fontanka should be parsed in special way
+					if strings.HasPrefix(item.Link, "https://calendar") {
+						collector.OnHTML(".content-block", func(el *colly.HTMLElement) {
+							el.ForEach("p", func(i int, innerEl *colly.HTMLElement) {
+								contents = append(contents, strings.TrimSpace(innerEl.Text))
+							})
+						})
+					}
+
 					collector.OnHTML("article[data-io-article-url]", func(el *colly.HTMLElement) {
 						el.ForEach("article[data-io-article-url]>div", func(i int, innerEl *colly.HTMLElement) {
 							if i != 0 {
@@ -117,25 +131,49 @@ func (b *Bot) parseSources() {
 	}
 }
 
-func parseVCContent(coll *colly.Collector) (string, []string) {
-	var (
-		h1       string
-		contents []string
-	)
+func (b *Bot) sendPostsQuick() {
+	ctx := context.Background()
 
-	coll.OnHTML("h1", func(el *colly.HTMLElement) {
-		h1 = strings.TrimSpace(el.Text)
-		h1 = strings.TrimSuffix(h1, "Материал редакции")
-	})
+	// Query users with >0 subscriptions
+	uu, err := b.db.Cli.User.Query().Where(user.HasSources()).All(ctx)
+	if err != nil {
+		b.lg.Errorf("failed querying users: %v", err)
+	}
+	for _, u := range uu {
+		ctx := context.Background()
 
-	coll.OnHTML(".content--full", func(el *colly.HTMLElement) {
-		el.ForEach(".layout--a", func(i int, innerEl *colly.HTMLElement) {
-			contents = append(contents, strings.TrimSpace(innerEl.Text))
-		})
-	})
-	return h1, contents
-}
+		settings, err := u.QuerySettings().Only(ctx)
+		if err != nil {
+			b.lg.Errorf("failed querying settings: %v", err)
+		}
 
-func parseRBContent(coll *colly.Collector) {
+		var frequency time.Duration
+		switch settings.SendingFrequency {
+		case "instant":
+			frequency = 0
+		case "1h":
+			frequency = 1 * time.Hour
+		case "4h":
+			frequency = 4 * time.Hour
+		}
 
+		if time.Now().After(settings.LastSending.Add(frequency)) {
+			posts, err := u.QuerySources().QueryPosts().Where(post.PublishedAtGT(settings.LastSending)).All(ctx)
+			if err != nil {
+				b.lg.Errorf("failed querying posts: %v", err)
+			}
+
+			for _, p := range posts {
+				//TODO: send proper message, not just title
+				msg := tgbotapi.NewMessage(int64(u.TgID), p.Title)
+				msg.ParseMode = tgbotapi.ModeHTML
+				b.BotAPI.Send(msg)
+
+				_, err = settings.Update().SetLastSending(time.Now()).Save(ctx)
+				if err != nil {
+					b.lg.Errorf("failed updating user settings: %v", err)
+				}
+			}
+		}
+	}
 }

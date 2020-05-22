@@ -27,7 +27,7 @@ type UserSettings struct {
 	// SendingFrequency holds the value of the "sending_frequency" field.
 	SendingFrequency usersettings.SendingFrequency `json:"sending_frequency,omitempty"`
 	// LastSending holds the value of the "last_sending" field.
-	LastSending *time.Time `json:"last_sending,omitempty"`
+	LastSending time.Time `json:"last_sending,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the UserSettingsQuery when eager-loading is set.
 	Edges         UserSettingsEdges `json:"edges"`
@@ -117,8 +117,7 @@ func (us *UserSettings) assignValues(values ...interface{}) error {
 	if value, ok := values[4].(*sql.NullTime); !ok {
 		return fmt.Errorf("unexpected type %T for field last_sending", values[4])
 	} else if value.Valid {
-		us.LastSending = new(time.Time)
-		*us.LastSending = value.Time
+		us.LastSending = value.Time
 	}
 	values = values[5:]
 	if len(values) == len(usersettings.ForeignKeys) {
@@ -168,10 +167,8 @@ func (us *UserSettings) String() string {
 	builder.WriteString(fmt.Sprintf("%v", us.Language))
 	builder.WriteString(", sending_frequency=")
 	builder.WriteString(fmt.Sprintf("%v", us.SendingFrequency))
-	if v := us.LastSending; v != nil {
-		builder.WriteString(", last_sending=")
-		builder.WriteString(v.Format(time.ANSIC))
-	}
+	builder.WriteString(", last_sending=")
+	builder.WriteString(us.LastSending.Format(time.ANSIC))
 	builder.WriteByte(')')
 	return builder.String()
 }

@@ -96,12 +96,6 @@ func (usu *UserSettingsUpdate) SetNillableLastSending(t *time.Time) *UserSetting
 	return usu
 }
 
-// ClearLastSending clears the value of last_sending.
-func (usu *UserSettingsUpdate) ClearLastSending() *UserSettingsUpdate {
-	usu.mutation.ClearLastSending()
-	return usu
-}
-
 // SetUserID sets the user edge to User by id.
 func (usu *UserSettingsUpdate) SetUserID(id int) *UserSettingsUpdate {
 	usu.mutation.SetUserID(id)
@@ -248,12 +242,6 @@ func (usu *UserSettingsUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Column: usersettings.FieldLastSending,
 		})
 	}
-	if usu.mutation.LastSendingCleared() {
-		_spec.Fields.Clear = append(_spec.Fields.Clear, &sqlgraph.FieldSpec{
-			Type:   field.TypeTime,
-			Column: usersettings.FieldLastSending,
-		})
-	}
 	if usu.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2O,
@@ -370,12 +358,6 @@ func (usuo *UserSettingsUpdateOne) SetNillableLastSending(t *time.Time) *UserSet
 	if t != nil {
 		usuo.SetLastSending(*t)
 	}
-	return usuo
-}
-
-// ClearLastSending clears the value of last_sending.
-func (usuo *UserSettingsUpdateOne) ClearLastSending() *UserSettingsUpdateOne {
-	usuo.mutation.ClearLastSending()
 	return usuo
 }
 
@@ -520,12 +502,6 @@ func (usuo *UserSettingsUpdateOne) sqlSave(ctx context.Context) (us *UserSetting
 		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
 			Type:   field.TypeTime,
 			Value:  value,
-			Column: usersettings.FieldLastSending,
-		})
-	}
-	if usuo.mutation.LastSendingCleared() {
-		_spec.Fields.Clear = append(_spec.Fields.Clear, &sqlgraph.FieldSpec{
-			Type:   field.TypeTime,
 			Column: usersettings.FieldLastSending,
 		})
 	}

@@ -300,20 +300,6 @@ func LastSendingLTE(v time.Time) predicate.UserSettings {
 	})
 }
 
-// LastSendingIsNil applies the IsNil predicate on the "last_sending" field.
-func LastSendingIsNil() predicate.UserSettings {
-	return predicate.UserSettings(func(s *sql.Selector) {
-		s.Where(sql.IsNull(s.C(FieldLastSending)))
-	})
-}
-
-// LastSendingNotNil applies the NotNil predicate on the "last_sending" field.
-func LastSendingNotNil() predicate.UserSettings {
-	return predicate.UserSettings(func(s *sql.Selector) {
-		s.Where(sql.NotNull(s.C(FieldLastSending)))
-	})
-}
-
 // HasUser applies the HasEdge predicate on the "user" edge.
 func HasUser() predicate.UserSettings {
 	return predicate.UserSettings(func(s *sql.Selector) {

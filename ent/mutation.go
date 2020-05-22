@@ -2038,22 +2038,9 @@ func (m *UserSettingsMutation) LastSending() (r time.Time, exists bool) {
 	return *v, true
 }
 
-// ClearLastSending clears the value of last_sending.
-func (m *UserSettingsMutation) ClearLastSending() {
-	m.last_sending = nil
-	m.clearedFields[usersettings.FieldLastSending] = struct{}{}
-}
-
-// LastSendingCleared returns if the field last_sending was cleared in this mutation.
-func (m *UserSettingsMutation) LastSendingCleared() bool {
-	_, ok := m.clearedFields[usersettings.FieldLastSending]
-	return ok
-}
-
 // ResetLastSending reset all changes of the last_sending field.
 func (m *UserSettingsMutation) ResetLastSending() {
 	m.last_sending = nil
-	delete(m.clearedFields, usersettings.FieldLastSending)
 }
 
 // SetUserID sets the user edge to User by id.
@@ -2223,9 +2210,6 @@ func (m *UserSettingsMutation) ClearedFields() []string {
 	if m.FieldCleared(usersettings.FieldBannedWords) {
 		fields = append(fields, usersettings.FieldBannedWords)
 	}
-	if m.FieldCleared(usersettings.FieldLastSending) {
-		fields = append(fields, usersettings.FieldLastSending)
-	}
 	return fields
 }
 
@@ -2245,9 +2229,6 @@ func (m *UserSettingsMutation) ClearField(name string) error {
 		return nil
 	case usersettings.FieldBannedWords:
 		m.ClearBannedWords()
-		return nil
-	case usersettings.FieldLastSending:
-		m.ClearLastSending()
 		return nil
 	}
 	return fmt.Errorf("unknown UserSettings nullable field %s", name)
