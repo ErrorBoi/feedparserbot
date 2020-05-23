@@ -14,6 +14,8 @@ import (
 	"github.com/ErrorBoi/feedparserbot/db"
 	"github.com/ErrorBoi/feedparserbot/ent/post"
 	"github.com/ErrorBoi/feedparserbot/ent/user"
+	"github.com/ErrorBoi/feedparserbot/ent/usersettings"
+	"github.com/ErrorBoi/feedparserbot/utils"
 )
 
 var sources = []string{
@@ -135,7 +137,17 @@ func (b *Bot) sendPostsQuick() {
 	ctx := context.Background()
 
 	// Query users with >0 subscriptions
-	uu, err := b.db.Cli.User.Query().Where(user.HasSources()).All(ctx)
+	uu, err := b.db.Cli.User.Query().
+		Where(
+			user.HasSources(),
+			user.HasSettingsWith(
+				usersettings.SendingFrequencyIn(
+					usersettings.SendingFrequencyInstant,
+					usersettings.SendingFrequency1h,
+					usersettings.SendingFrequency4h,
+				)),
+		).
+		All(ctx)
 	if err != nil {
 		b.lg.Errorf("failed querying users: %v", err)
 	}
@@ -164,15 +176,211 @@ func (b *Bot) sendPostsQuick() {
 			}
 
 			for _, p := range posts {
-				//TODO: send proper message, not just title
-				msg := tgbotapi.NewMessage(int64(u.TgID), p.Title)
+				src, err := p.QuerySource().Only(ctx)
+				if err != nil {
+					b.lg.Errorf("failed querying source from post: %v", err)
+				}
+
+				pi := utils.PostInfo{
+					SourceTitle: src.Title,
+					PostTitle:   p.Title,
+					URL:         p.URL,
+					Description: p.Description,
+				}
+				msg := tgbotapi.NewMessage(int64(u.TgID), utils.FormatPost(pi))
 				msg.ParseMode = tgbotapi.ModeHTML
 				b.BotAPI.Send(msg)
+			}
 
-				_, err = settings.Update().SetLastSending(time.Now()).Save(ctx)
+			_, err = settings.Update().SetLastSending(time.Now()).Save(ctx)
+			if err != nil {
+				b.lg.Errorf("failed updating user settings: %v", err)
+			}
+		}
+	}
+}
+
+func (b *Bot) sendPostsAM() {
+	ctx := context.Background()
+
+	// Query users with >0 subscriptions
+	uu, err := b.db.Cli.User.Query().
+		Where(
+			user.HasSources(),
+			user.HasSettingsWith(usersettings.SendingFrequencyEQ(usersettings.SendingFrequencyAm)),
+		).
+		All(ctx)
+	if err != nil {
+		b.lg.Errorf("failed querying users: %v", err)
+	}
+
+	for _, u := range uu {
+		ctx := context.Background()
+
+		settings, err := u.QuerySettings().Only(ctx)
+		if err != nil {
+			b.lg.Errorf("failed querying settings: %v", err)
+		}
+
+		if time.Now().After(settings.LastSending) {
+			posts, err := u.QuerySources().QueryPosts().Where(post.PublishedAtGT(settings.LastSending)).All(ctx)
+			if err != nil {
+				b.lg.Errorf("failed querying posts: %v", err)
+			}
+
+			for _, p := range posts {
+				src, err := p.QuerySource().Only(ctx)
 				if err != nil {
-					b.lg.Errorf("failed updating user settings: %v", err)
+					b.lg.Errorf("failed querying source from post: %v", err)
 				}
+
+				pi := utils.PostInfo{
+					SourceTitle: src.Title,
+					PostTitle:   p.Title,
+					URL:         p.URL,
+					Description: p.Description,
+				}
+				msg := tgbotapi.NewMessage(int64(u.TgID), utils.FormatPost(pi))
+				msg.ParseMode = tgbotapi.ModeHTML
+				b.BotAPI.Send(msg)
+			}
+
+			_, err = settings.Update().SetLastSending(time.Now()).Save(ctx)
+			if err != nil {
+				b.lg.Errorf("failed updating user settings: %v", err)
+			}
+		}
+	}
+}
+
+func (b *Bot) sendPostsPM() {
+	ctx := context.Background()
+
+	// Query users with >0 subscriptions
+	uu, err := b.db.Cli.User.Query().
+		Where(
+			user.HasSources(),
+			user.HasSettingsWith(usersettings.SendingFrequencyEQ(usersettings.SendingFrequencyPm)),
+		).
+		All(ctx)
+	if err != nil {
+		b.lg.Errorf("failed querying users: %v", err)
+	}
+
+	for _, u := range uu {
+		ctx := context.Background()
+
+		settings, err := u.QuerySettings().Only(ctx)
+		if err != nil {
+			b.lg.Errorf("failed querying settings: %v", err)
+		}
+
+		if time.Now().After(settings.LastSending) {
+			posts, err := u.QuerySources().QueryPosts().Where(post.PublishedAtGT(settings.LastSending)).All(ctx)
+			if err != nil {
+				b.lg.Errorf("failed querying posts: %v", err)
+			}
+
+			for _, p := range posts {
+				src, err := p.QuerySource().Only(ctx)
+				if err != nil {
+					b.lg.Errorf("failed querying source from post: %v", err)
+				}
+
+				pi := utils.PostInfo{
+					SourceTitle: src.Title,
+					PostTitle:   p.Title,
+					URL:         p.URL,
+					Description: p.Description,
+				}
+				msg := tgbotapi.NewMessage(int64(u.TgID), utils.FormatPost(pi))
+				msg.ParseMode = tgbotapi.ModeHTML
+				b.BotAPI.Send(msg)
+			}
+
+			_, err = settings.Update().SetLastSending(time.Now()).Save(ctx)
+			if err != nil {
+				b.lg.Errorf("failed updating user settings: %v", err)
+			}
+		}
+	}
+}
+
+func (b *Bot) sendPostsDaily() {
+	ctx := context.Background()
+
+	// Query users with >0 subscriptions
+	uu, err := b.db.Cli.User.Query().
+		Where(
+			user.HasSources(),
+			user.HasSettingsWith(
+				usersettings.SendingFrequencyIn(
+					usersettings.SendingFrequencyMon,
+					usersettings.SendingFrequencyTue,
+					usersettings.SendingFrequencyWed,
+					usersettings.SendingFrequencyThu,
+					usersettings.SendingFrequencyFri,
+					usersettings.SendingFrequencySat,
+					usersettings.SendingFrequencySun,
+				)),
+		).
+		All(ctx)
+	if err != nil {
+		b.lg.Errorf("failed querying users: %v", err)
+	}
+	for _, u := range uu {
+		ctx := context.Background()
+
+		settings, err := u.QuerySettings().Only(ctx)
+		if err != nil {
+			b.lg.Errorf("failed querying settings: %v", err)
+		}
+
+		var weekday time.Weekday
+		switch settings.SendingFrequency {
+		case "sun":
+			weekday = 0
+		case "mon":
+			weekday = 1
+		case "tue":
+			weekday = 2
+		case "wed":
+			weekday = 3
+		case "thu":
+			weekday = 4
+		case "fri":
+			weekday = 5
+		case "sat":
+			weekday = 6
+		}
+
+		now := time.Now()
+		if now.After(settings.LastSending) && now.Weekday() == weekday {
+			posts, err := u.QuerySources().QueryPosts().Where(post.PublishedAtGT(settings.LastSending)).All(ctx)
+			if err != nil {
+				b.lg.Errorf("failed querying posts: %v", err)
+			}
+
+			for _, p := range posts {
+				src, err := p.QuerySource().Only(ctx)
+				if err != nil {
+					b.lg.Errorf("failed querying source from post: %v", err)
+				}
+
+				pi := utils.PostInfo{
+					SourceTitle: src.Title,
+					PostTitle:   p.Title,
+					URL:         p.URL,
+					Description: p.Description,
+				}
+				msg := tgbotapi.NewMessage(int64(u.TgID), utils.FormatPost(pi))
+				msg.ParseMode = tgbotapi.ModeHTML
+				b.BotAPI.Send(msg)
+			}
+
+			_, err = settings.Update().SetLastSending(time.Now()).Save(ctx)
+			if err != nil {
+				b.lg.Errorf("failed updating user settings: %v", err)
 			}
 		}
 	}

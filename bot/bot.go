@@ -17,6 +17,29 @@ type Bot struct {
 	lg     *zap.SugaredLogger
 }
 
+var numericKeyboard = tgbotapi.NewInlineKeyboardMarkup(
+	tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonURL("1.com", "http://1.com"),
+		tgbotapi.NewInlineKeyboardButtonSwitch("2sw", "open 2"),
+		tgbotapi.NewInlineKeyboardButtonData("3", "3"),
+	),
+	tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("4", "4"),
+		tgbotapi.NewInlineKeyboardButtonData("5", "5"),
+		tgbotapi.NewInlineKeyboardButtonData("6", "6"),
+	),
+)
+
+var numericKeyboard2 = tgbotapi.NewReplyKeyboard(
+	tgbotapi.NewKeyboardButtonRow(
+		tgbotapi.NewKeyboardButton("Отправить последние посты"),
+	),
+	tgbotapi.NewKeyboardButtonRow(
+		tgbotapi.NewKeyboardButton("Подписки"),
+		tgbotapi.NewKeyboardButton("Настройки"),
+	),
+)
+
 // InitBot inits a bot with given Token
 func InitBot(BotToken string, db *db.DB, lg *zap.SugaredLogger) (*Bot, error) {
 	var err error
@@ -46,14 +69,35 @@ func (b *Bot) InitUpdates(BotToken string) error {
 
 	for update := range updates {
 		if update.Message == nil { // ignore any non-Message Updates
-			continue
-		}
+			if update.CallbackQuery != nil {
+				fmt.Print(update)
 
-		if update.Message.IsCommand() {
-			b.ExecuteCommand(update.Message)
-		}
+				if update.CallbackQuery.Data == "3" {
+					msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, "UPD")
+					b.BotAPI.Send(msg)
+				}
 
-		b.lg.Infof("[%s] %s", update.Message.From.UserName, update.Message.Text)
+				b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(update.CallbackQuery.ID, update.CallbackQuery.Data))
+
+				b.BotAPI.Send(tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Data))
+			}
+		} else {
+			if update.Message.IsCommand() {
+				b.ExecuteCommand(update.Message)
+			} else {
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
+				switch update.Message.Text {
+				case "test1":
+					msg.ReplyMarkup = numericKeyboard
+				case "open":
+					msg.ReplyMarkup = numericKeyboard2
+				}
+
+				b.BotAPI.Send(msg)
+			}
+
+			b.lg.Infof("[%s] %s", update.Message.From.UserName, update.Message.Text)
+		}
 	}
 
 	return nil
@@ -87,12 +131,12 @@ func (b *Bot) RunScheduler() {
 	// Send posts to users with instant or <=4h sending frequency
 	gocron.Every(5).Minute().Do(b.sendPostsQuick)
 
-	//// Send posts to users with AM or PM sending frequency
-	//gocron.Every(1).Day().At("11:00").Do()
-	//gocron.Every(1).Day().At("19:00").Do()
-	//
-	//// Send posts to users with weekly sending frequency
-	//gocron.Every(1).Day().Do()
+	// Send posts to users with AM or PM sending frequency
+	gocron.Every(1).Day().At("11:00").Do(b.sendPostsAM)
+	gocron.Every(1).Day().At("19:00").Do(b.sendPostsPM)
+
+	// Send posts to users with weekly sending frequency
+	gocron.Every(1).Day().Do(b.sendPostsDaily)
 
 	// Start all the pending jobs
 	<-gocron.Start()
