@@ -8,6 +8,18 @@ import (
 )
 
 var (
+	// GlobalsettingsColumns holds the columns for the "globalsettings" table.
+	GlobalsettingsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "clickbait_words", Type: field.TypeJSON, Nullable: true},
+	}
+	// GlobalsettingsTable holds the schema information for the "globalsettings" table.
+	GlobalsettingsTable = &schema.Table{
+		Name:        "globalsettings",
+		Columns:     GlobalsettingsColumns,
+		PrimaryKey:  []*schema.Column{GlobalsettingsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{},
+	}
 	// PostsColumns holds the columns for the "posts" table.
 	PostsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -132,6 +144,7 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		GlobalsettingsTable,
 		PostsTable,
 		SourcesTable,
 		UsersTable,

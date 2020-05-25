@@ -61,7 +61,7 @@ var (
 	settingsMainKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("⏳ Изменить периодичность", "frequency"),
-			),
+		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("Изменить срочные слова", "urgent"),
 			tgbotapi.NewInlineKeyboardButtonData("Изменить чёрный список", "banned_words"),
@@ -95,7 +95,21 @@ var (
 			tgbotapi.NewInlineKeyboardButtonData("Каждую Сб", "sat"),
 			tgbotapi.NewInlineKeyboardButtonData("Каждое Вс", "sun"),
 		),
-		)
+	)
+	settingsBackKeyboard = tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔙 Назад", "settings"),
+		),
+	)
+	settingsLanguageKeyboard = tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔙 Назад", "settings"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🇷🇺 Русский", "ru_language"),
+			tgbotapi.NewInlineKeyboardButtonData("🇬🇧 English", "en_language"),
+		),
+	)
 
 	// Messages
 	subRBHubsText = "Для того, чтобы подписаться на конкретный раздел сайта RB.ru, найдите ссылку на этот раздел" +

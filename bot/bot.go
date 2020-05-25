@@ -79,6 +79,10 @@ func (b *Bot) ExecuteCommand(m *tgbotapi.Message) {
 		go b.help(m)
 	case "add":
 		go b.add(m)
+	case "urgent":
+		go b.urgent(m)
+	case "banned":
+		go b.bannedWords(m)
 	default:
 		if m.Chat.IsPrivate() {
 			msg := tgbotapi.NewMessage(m.Chat.ID, "К сожалению, я не знаю такой команды. "+
@@ -256,6 +260,48 @@ func (b *Bot) ExecuteCallbackQuery(cq *tgbotapi.CallbackQuery) {
 			b.lg.Errorf("failed updating user settings: %v", err)
 		}
 		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+	case "urgent":
+		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID,
+			"Вы можете установить \"срочные\" слова, при вхождении "+
+				"которых в заголовок, новости будут отправлены вам вне зависимости от настроек периодичности. "+
+				"Чтобы это сделать - введите /urgent + список слов через запятую. Например:\n /urgent ЛО,Санкт-Петербург,Доллар")
+		msg.ReplyMarkup = &settingsBackKeyboard
+		msg.ParseMode = tgbotapi.ModeHTML
+		b.BotAPI.Send(msg)
+	case "banned_words":
+		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID,
+			"Вы можете установить \"чёрный список\" слов. Если слова из этого списка входят "+
+				"в заголовок новости, она не будет вам отправлена. "+
+				"Чтобы это сделать - введите /banned + список слов через запятую. Например:\n /banned Коронавирус,Поправки")
+		msg.ReplyMarkup = &settingsBackKeyboard
+		msg.ParseMode = tgbotapi.ModeHTML
+		b.BotAPI.Send(msg)
+	case "language":
+		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID,
+			"Выберите желаемый язык:")
+		msg.ReplyMarkup = &settingsLanguageKeyboard
+		msg.ParseMode = tgbotapi.ModeHTML
+		b.BotAPI.Send(msg)
+	case "ru_language":
+		ctx := context.Background()
+		_, err := b.db.Cli.UserSettings.Update().
+			Where(usersettings.HasUserWith(user.TgID(cq.From.ID))).
+			SetLanguage(usersettings.LanguageRu).
+			Save(ctx)
+		if err != nil {
+			b.lg.Errorf("failed updating user settings: %v", err)
+		}
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Язык изменён"))
+	case "en_language":
+		ctx := context.Background()
+		_, err := b.db.Cli.UserSettings.Update().
+			Where(usersettings.HasUserWith(user.TgID(cq.From.ID))).
+			SetLanguage(usersettings.LanguageEn).
+			Save(ctx)
+		if err != nil {
+			b.lg.Errorf("failed updating user settings: %v", err)
+		}
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Язык изменён"))
 	default:
 		if strings.HasPrefix(cq.Data, "unsubSource") {
 			ctx := context.Background()
@@ -329,6 +375,9 @@ func (b *Bot) RunScheduler() {
 
 	// Parse RSS Feeds every 5 minutes
 	gocron.Every(5).Minute().Do(b.parseSources)
+
+	// Send posts with urgent words in title
+
 
 	// Start all the pending jobs
 	<-gocron.Start()

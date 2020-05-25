@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ErrorBoi/feedparserbot/ent/globalsettings"
 	"github.com/ErrorBoi/feedparserbot/ent/post"
 	"github.com/ErrorBoi/feedparserbot/ent/schema"
 	"github.com/ErrorBoi/feedparserbot/ent/source"
@@ -24,11 +25,265 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypePost         = "Post"
-	TypeSource       = "Source"
-	TypeUser         = "User"
-	TypeUserSettings = "UserSettings"
+	TypeGlobalsettings = "Globalsettings"
+	TypePost           = "Post"
+	TypeSource         = "Source"
+	TypeUser           = "User"
+	TypeUserSettings   = "UserSettings"
 )
+
+// GlobalsettingsMutation represents an operation that mutate the GlobalsettingsSlice
+// nodes in the graph.
+type GlobalsettingsMutation struct {
+	config
+	op              Op
+	typ             string
+	id              *int
+	clickbait_words *[]string
+	clearedFields   map[string]struct{}
+}
+
+var _ ent.Mutation = (*GlobalsettingsMutation)(nil)
+
+// newGlobalsettingsMutation creates new mutation for $n.Name.
+func newGlobalsettingsMutation(c config, op Op) *GlobalsettingsMutation {
+	return &GlobalsettingsMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeGlobalsettings,
+		clearedFields: make(map[string]struct{}),
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m GlobalsettingsMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m GlobalsettingsMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, fmt.Errorf("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the id value in the mutation. Note that, the id
+// is available only if it was provided to the builder.
+func (m *GlobalsettingsMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// SetClickbaitWords sets the clickbait_words field.
+func (m *GlobalsettingsMutation) SetClickbaitWords(s []string) {
+	m.clickbait_words = &s
+}
+
+// ClickbaitWords returns the clickbait_words value in the mutation.
+func (m *GlobalsettingsMutation) ClickbaitWords() (r []string, exists bool) {
+	v := m.clickbait_words
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearClickbaitWords clears the value of clickbait_words.
+func (m *GlobalsettingsMutation) ClearClickbaitWords() {
+	m.clickbait_words = nil
+	m.clearedFields[globalsettings.FieldClickbaitWords] = struct{}{}
+}
+
+// ClickbaitWordsCleared returns if the field clickbait_words was cleared in this mutation.
+func (m *GlobalsettingsMutation) ClickbaitWordsCleared() bool {
+	_, ok := m.clearedFields[globalsettings.FieldClickbaitWords]
+	return ok
+}
+
+// ResetClickbaitWords reset all changes of the clickbait_words field.
+func (m *GlobalsettingsMutation) ResetClickbaitWords() {
+	m.clickbait_words = nil
+	delete(m.clearedFields, globalsettings.FieldClickbaitWords)
+}
+
+// Op returns the operation name.
+func (m *GlobalsettingsMutation) Op() Op {
+	return m.op
+}
+
+// Type returns the node type of this mutation (Globalsettings).
+func (m *GlobalsettingsMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during
+// this mutation. Note that, in order to get all numeric
+// fields that were in/decremented, call AddedFields().
+func (m *GlobalsettingsMutation) Fields() []string {
+	fields := make([]string, 0, 1)
+	if m.clickbait_words != nil {
+		fields = append(fields, globalsettings.FieldClickbaitWords)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name.
+// The second boolean value indicates that this field was
+// not set, or was not define in the schema.
+func (m *GlobalsettingsMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case globalsettings.FieldClickbaitWords:
+		return m.ClickbaitWords()
+	}
+	return nil, false
+}
+
+// SetField sets the value for the given name. It returns an
+// error if the field is not defined in the schema, or if the
+// type mismatch the field type.
+func (m *GlobalsettingsMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case globalsettings.FieldClickbaitWords:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetClickbaitWords(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Globalsettings field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented
+// or decremented during this mutation.
+func (m *GlobalsettingsMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was in/decremented
+// from a field with the given name. The second value indicates
+// that this field was not set, or was not define in the schema.
+func (m *GlobalsettingsMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value for the given name. It returns an
+// error if the field is not defined in the schema, or if the
+// type mismatch the field type.
+func (m *GlobalsettingsMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Globalsettings numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared
+// during this mutation.
+func (m *GlobalsettingsMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(globalsettings.FieldClickbaitWords) {
+		fields = append(fields, globalsettings.FieldClickbaitWords)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicates if this field was
+// cleared in this mutation.
+func (m *GlobalsettingsMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value for the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *GlobalsettingsMutation) ClearField(name string) error {
+	switch name {
+	case globalsettings.FieldClickbaitWords:
+		m.ClearClickbaitWords()
+		return nil
+	}
+	return fmt.Errorf("unknown Globalsettings nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation regarding the
+// given field name. It returns an error if the field is not
+// defined in the schema.
+func (m *GlobalsettingsMutation) ResetField(name string) error {
+	switch name {
+	case globalsettings.FieldClickbaitWords:
+		m.ResetClickbaitWords()
+		return nil
+	}
+	return fmt.Errorf("unknown Globalsettings field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this
+// mutation.
+func (m *GlobalsettingsMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all ids (to other nodes) that were added for
+// the given edge name.
+func (m *GlobalsettingsMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this
+// mutation.
+func (m *GlobalsettingsMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all ids (to other nodes) that were removed for
+// the given edge name.
+func (m *GlobalsettingsMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this
+// mutation.
+func (m *GlobalsettingsMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean indicates if this edge was
+// cleared in this mutation.
+func (m *GlobalsettingsMutation) EdgeCleared(name string) bool {
+	switch name {
+	}
+	return false
+}
+
+// ClearEdge clears the value for the given name. It returns an
+// error if the edge name is not defined in the schema.
+func (m *GlobalsettingsMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown Globalsettings unique edge %s", name)
+}
+
+// ResetEdge resets all changes in the mutation regarding the
+// given edge name. It returns an error if the edge is not
+// defined in the schema.
+func (m *GlobalsettingsMutation) ResetEdge(name string) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Globalsettings edge %s", name)
+}
 
 // PostMutation represents an operation that mutate the Posts
 // nodes in the graph.

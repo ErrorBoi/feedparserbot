@@ -9,6 +9,7 @@ import (
 
 	"github.com/ErrorBoi/feedparserbot/ent/migrate"
 
+	"github.com/ErrorBoi/feedparserbot/ent/globalsettings"
 	"github.com/ErrorBoi/feedparserbot/ent/post"
 	"github.com/ErrorBoi/feedparserbot/ent/source"
 	"github.com/ErrorBoi/feedparserbot/ent/user"
@@ -24,6 +25,8 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
+	// Globalsettings is the client for interacting with the Globalsettings builders.
+	Globalsettings *GlobalsettingsClient
 	// Post is the client for interacting with the Post builders.
 	Post *PostClient
 	// Source is the client for interacting with the Source builders.
@@ -45,6 +48,7 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
+	c.Globalsettings = NewGlobalsettingsClient(c.config)
 	c.Post = NewPostClient(c.config)
 	c.Source = NewSourceClient(c.config)
 	c.User = NewUserClient(c.config)
@@ -78,11 +82,12 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	}
 	cfg := config{driver: tx, log: c.log, debug: c.debug, hooks: c.hooks}
 	return &Tx{
-		config:       cfg,
-		Post:         NewPostClient(cfg),
-		Source:       NewSourceClient(cfg),
-		User:         NewUserClient(cfg),
-		UserSettings: NewUserSettingsClient(cfg),
+		config:         cfg,
+		Globalsettings: NewGlobalsettingsClient(cfg),
+		Post:           NewPostClient(cfg),
+		Source:         NewSourceClient(cfg),
+		User:           NewUserClient(cfg),
+		UserSettings:   NewUserSettingsClient(cfg),
 	}, nil
 }
 
@@ -97,18 +102,19 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	}
 	cfg := config{driver: &txDriver{tx: tx, drv: c.driver}, log: c.log, debug: c.debug, hooks: c.hooks}
 	return &Tx{
-		config:       cfg,
-		Post:         NewPostClient(cfg),
-		Source:       NewSourceClient(cfg),
-		User:         NewUserClient(cfg),
-		UserSettings: NewUserSettingsClient(cfg),
+		config:         cfg,
+		Globalsettings: NewGlobalsettingsClient(cfg),
+		Post:           NewPostClient(cfg),
+		Source:         NewSourceClient(cfg),
+		User:           NewUserClient(cfg),
+		UserSettings:   NewUserSettingsClient(cfg),
 	}, nil
 }
 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		Post.
+//		Globalsettings.
 //		Query().
 //		Count(ctx)
 //
@@ -130,10 +136,94 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
+	c.Globalsettings.Use(hooks...)
 	c.Post.Use(hooks...)
 	c.Source.Use(hooks...)
 	c.User.Use(hooks...)
 	c.UserSettings.Use(hooks...)
+}
+
+// GlobalsettingsClient is a client for the Globalsettings schema.
+type GlobalsettingsClient struct {
+	config
+}
+
+// NewGlobalsettingsClient returns a client for the Globalsettings from the given config.
+func NewGlobalsettingsClient(c config) *GlobalsettingsClient {
+	return &GlobalsettingsClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `globalsettings.Hooks(f(g(h())))`.
+func (c *GlobalsettingsClient) Use(hooks ...Hook) {
+	c.hooks.Globalsettings = append(c.hooks.Globalsettings, hooks...)
+}
+
+// Create returns a create builder for Globalsettings.
+func (c *GlobalsettingsClient) Create() *GlobalsettingsCreate {
+	mutation := newGlobalsettingsMutation(c.config, OpCreate)
+	return &GlobalsettingsCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Update returns an update builder for Globalsettings.
+func (c *GlobalsettingsClient) Update() *GlobalsettingsUpdate {
+	mutation := newGlobalsettingsMutation(c.config, OpUpdate)
+	return &GlobalsettingsUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *GlobalsettingsClient) UpdateOne(gl *Globalsettings) *GlobalsettingsUpdateOne {
+	return c.UpdateOneID(gl.ID)
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *GlobalsettingsClient) UpdateOneID(id int) *GlobalsettingsUpdateOne {
+	mutation := newGlobalsettingsMutation(c.config, OpUpdateOne)
+	mutation.id = &id
+	return &GlobalsettingsUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Globalsettings.
+func (c *GlobalsettingsClient) Delete() *GlobalsettingsDelete {
+	mutation := newGlobalsettingsMutation(c.config, OpDelete)
+	return &GlobalsettingsDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a delete builder for the given entity.
+func (c *GlobalsettingsClient) DeleteOne(gl *Globalsettings) *GlobalsettingsDeleteOne {
+	return c.DeleteOneID(gl.ID)
+}
+
+// DeleteOneID returns a delete builder for the given id.
+func (c *GlobalsettingsClient) DeleteOneID(id int) *GlobalsettingsDeleteOne {
+	builder := c.Delete().Where(globalsettings.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &GlobalsettingsDeleteOne{builder}
+}
+
+// Create returns a query builder for Globalsettings.
+func (c *GlobalsettingsClient) Query() *GlobalsettingsQuery {
+	return &GlobalsettingsQuery{config: c.config}
+}
+
+// Get returns a Globalsettings entity by its id.
+func (c *GlobalsettingsClient) Get(ctx context.Context, id int) (*Globalsettings, error) {
+	return c.Query().Where(globalsettings.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *GlobalsettingsClient) GetX(ctx context.Context, id int) *Globalsettings {
+	gl, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return gl
+}
+
+// Hooks returns the client hooks.
+func (c *GlobalsettingsClient) Hooks() []Hook {
+	return c.hooks.Globalsettings
 }
 
 // PostClient is a client for the Post schema.

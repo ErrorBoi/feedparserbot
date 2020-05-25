@@ -9,6 +9,7 @@ import (
 	"github.com/ErrorBoi/feedparserbot/ent"
 	"github.com/ErrorBoi/feedparserbot/ent/source"
 	"github.com/ErrorBoi/feedparserbot/ent/user"
+	"github.com/ErrorBoi/feedparserbot/ent/usersettings"
 )
 
 func (b *Bot) start(m *tgbotapi.Message) {
@@ -125,6 +126,57 @@ func (b *Bot) add(m *tgbotapi.Message) {
 				msg = "Подписка оформлена"
 			}
 		}
+	}
+	message := tgbotapi.NewMessage(m.Chat.ID, msg)
+	message.ParseMode = tgbotapi.ModeHTML
+	b.BotAPI.Send(message)
+}
+
+func (b *Bot) urgent(m *tgbotapi.Message) {
+	args := m.CommandArguments()
+	args = strings.TrimSpace(args)
+
+	var msg string
+	if len(args) == 0 {
+		msg = "После команды нужно указать список слов через запятую. Например:\n" +
+			"/urgent ЛО,Санкт-Петербург,Доллар"
+	} else {
+		arr := strings.Split(args, ",")
+		ctx := context.Background()
+
+		_, err := b.db.Cli.UserSettings.Update().
+			Where(usersettings.HasUserWith(user.TgID(m.From.ID))).
+			SetUrgentWords(arr).
+			Save(ctx)
+		if err != nil {
+			b.lg.Fatalf("failed updating user settings: %v", err)
+		}
+		msg = "\"Срочные\" слова записаны!"
+	}
+	message := tgbotapi.NewMessage(m.Chat.ID, msg)
+	message.ParseMode = tgbotapi.ModeHTML
+	b.BotAPI.Send(message)
+}
+
+func (b *Bot) bannedWords(m *tgbotapi.Message) {
+	args := m.CommandArguments()
+	args = strings.TrimSpace(args)
+
+	var msg string
+	if len(args) == 0 {
+		msg = "После команды нужно указать список слов через запятую. Например:\n/banned Коронавирус,Поправки"
+	} else {
+		arr := strings.Split(args, ",")
+		ctx := context.Background()
+
+		_, err := b.db.Cli.UserSettings.Update().
+			Where(usersettings.HasUserWith(user.TgID(m.From.ID))).
+			SetBannedWords(arr).
+			Save(ctx)
+		if err != nil {
+			b.lg.Fatalf("failed updating user settings: %v", err)
+		}
+		msg = "\"Чёрный список\" обновлён!"
 	}
 	message := tgbotapi.NewMessage(m.Chat.ID, msg)
 	message.ParseMode = tgbotapi.ModeHTML

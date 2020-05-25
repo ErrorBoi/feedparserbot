@@ -154,6 +154,30 @@ func DenyMutationOperationRule(op ent.Op) MutationRule {
 	})
 }
 
+// The GlobalsettingsQueryRuleFunc type is an adapter to allow the use of ordinary
+// functions as a query rule.
+type GlobalsettingsQueryRuleFunc func(context.Context, *ent.GlobalsettingsQuery) error
+
+// EvalQuery return f(ctx, q).
+func (f GlobalsettingsQueryRuleFunc) EvalQuery(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.GlobalsettingsQuery); ok {
+		return f(ctx, q)
+	}
+	return Denyf("ent/privacy: unexpected query type %T, expect *ent.GlobalsettingsQuery", q)
+}
+
+// The GlobalsettingsMutationRuleFunc type is an adapter to allow the use of ordinary
+// functions as a mutation rule.
+type GlobalsettingsMutationRuleFunc func(context.Context, *ent.GlobalsettingsMutation) error
+
+// EvalMutation calls f(ctx, m).
+func (f GlobalsettingsMutationRuleFunc) EvalMutation(ctx context.Context, m ent.Mutation) error {
+	if m, ok := m.(*ent.GlobalsettingsMutation); ok {
+		return f(ctx, m)
+	}
+	return Denyf("ent/privacy: unexpected mutation type %T, expect *ent.GlobalsettingsMutation", m)
+}
+
 // The PostQueryRuleFunc type is an adapter to allow the use of ordinary
 // functions as a query rule.
 type PostQueryRuleFunc func(context.Context, *ent.PostQuery) error
