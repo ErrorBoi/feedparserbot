@@ -1372,6 +1372,7 @@ type UserMutation struct {
 	tg_id           *int
 	addtg_id        *int
 	payment_info    *string
+	role            *user.Role
 	clearedFields   map[string]struct{}
 	settings        *int
 	clearedsettings bool
@@ -1522,6 +1523,25 @@ func (m *UserMutation) ResetPaymentInfo() {
 	delete(m.clearedFields, user.FieldPaymentInfo)
 }
 
+// SetRole sets the role field.
+func (m *UserMutation) SetRole(u user.Role) {
+	m.role = &u
+}
+
+// Role returns the role value in the mutation.
+func (m *UserMutation) Role() (r user.Role, exists bool) {
+	v := m.role
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRole reset all changes of the role field.
+func (m *UserMutation) ResetRole() {
+	m.role = nil
+}
+
 // SetSettingsID sets the settings edge to UserSettings by id.
 func (m *UserMutation) SetSettingsID(id int) {
 	m.settings = &id
@@ -1617,7 +1637,7 @@ func (m *UserMutation) Type() string {
 // this mutation. Note that, in order to get all numeric
 // fields that were in/decremented, call AddedFields().
 func (m *UserMutation) Fields() []string {
-	fields := make([]string, 0, 3)
+	fields := make([]string, 0, 4)
 	if m.email != nil {
 		fields = append(fields, user.FieldEmail)
 	}
@@ -1626,6 +1646,9 @@ func (m *UserMutation) Fields() []string {
 	}
 	if m.payment_info != nil {
 		fields = append(fields, user.FieldPaymentInfo)
+	}
+	if m.role != nil {
+		fields = append(fields, user.FieldRole)
 	}
 	return fields
 }
@@ -1641,6 +1664,8 @@ func (m *UserMutation) Field(name string) (ent.Value, bool) {
 		return m.TgID()
 	case user.FieldPaymentInfo:
 		return m.PaymentInfo()
+	case user.FieldRole:
+		return m.Role()
 	}
 	return nil, false
 }
@@ -1670,6 +1695,13 @@ func (m *UserMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetPaymentInfo(v)
+		return nil
+	case user.FieldRole:
+		v, ok := value.(user.Role)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRole(v)
 		return nil
 	}
 	return fmt.Errorf("unknown User field %s", name)
@@ -1759,6 +1791,9 @@ func (m *UserMutation) ResetField(name string) error {
 		return nil
 	case user.FieldPaymentInfo:
 		m.ResetPaymentInfo()
+		return nil
+	case user.FieldRole:
+		m.ResetRole()
 		return nil
 	}
 	return fmt.Errorf("unknown User field %s", name)

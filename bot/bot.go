@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -9,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/ErrorBoi/feedparserbot/db"
+	"github.com/ErrorBoi/feedparserbot/ent"
 )
 
 type Bot struct {
@@ -16,29 +18,6 @@ type Bot struct {
 	db     *db.DB
 	lg     *zap.SugaredLogger
 }
-
-var numericKeyboard = tgbotapi.NewInlineKeyboardMarkup(
-	tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonURL("1.com", "http://1.com"),
-		tgbotapi.NewInlineKeyboardButtonSwitch("2sw", "open 2"),
-		tgbotapi.NewInlineKeyboardButtonData("3", "3"),
-	),
-	tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("4", "4"),
-		tgbotapi.NewInlineKeyboardButtonData("5", "5"),
-		tgbotapi.NewInlineKeyboardButtonData("6", "6"),
-	),
-)
-
-var numericKeyboard2 = tgbotapi.NewReplyKeyboard(
-	tgbotapi.NewKeyboardButtonRow(
-		tgbotapi.NewKeyboardButton("Отправить последние посты"),
-	),
-	tgbotapi.NewKeyboardButtonRow(
-		tgbotapi.NewKeyboardButton("Подписки"),
-		tgbotapi.NewKeyboardButton("Настройки"),
-	),
-)
 
 // InitBot inits a bot with given Token
 func InitBot(BotToken string, db *db.DB, lg *zap.SugaredLogger) (*Bot, error) {
@@ -68,32 +47,15 @@ func (b *Bot) InitUpdates(BotToken string) error {
 	go b.RunScheduler()
 
 	for update := range updates {
-		if update.Message == nil { // ignore any non-Message Updates
+		if update.Message == nil {
 			if update.CallbackQuery != nil {
-				fmt.Print(update)
-
-				if update.CallbackQuery.Data == "3" {
-					msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, "UPD")
-					b.BotAPI.Send(msg)
-				}
-
-				b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(update.CallbackQuery.ID, update.CallbackQuery.Data))
-
-				b.BotAPI.Send(tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Data))
+				b.ExecuteCallbackQuery(update.CallbackQuery)
 			}
 		} else {
 			if update.Message.IsCommand() {
 				b.ExecuteCommand(update.Message)
 			} else {
-				msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
-				switch update.Message.Text {
-				case "test1":
-					msg.ReplyMarkup = numericKeyboard
-				case "open":
-					msg.ReplyMarkup = numericKeyboard2
-				}
-
-				b.BotAPI.Send(msg)
+				b.ExecuteText(update.Message)
 			}
 
 			b.lg.Infof("[%s] %s", update.Message.From.UserName, update.Message.Text)
@@ -122,11 +84,64 @@ func (b *Bot) ExecuteCommand(m *tgbotapi.Message) {
 	}
 }
 
+// ExecuteCallbackQuery handles callback queries
+func (b *Bot) ExecuteCallbackQuery(cq *tgbotapi.CallbackQuery) {
+	ctx := context.Background()
+	switch cq.Data {
+	case "3":
+		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID, "UPD!~")
+		b.BotAPI.Send(msg)
+	case "sub":
+		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID,
+			"Выберите источники, на которые хотите подписаться:")
+		msg.ReplyMarkup = &subscribeKeyboard
+		b.BotAPI.Send(msg)
+	case "backSubscribeKeyboard":
+		text := b.getSubsText(cq.Message.Chat.ID)
+
+		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID, text)
+		msg.ReplyMarkup = &subsMainKeyboard
+		msg.ParseMode = tgbotapi.ModeHTML
+
+		b.BotAPI.Send(msg)
+	case "subVC":
+		err := b.db.StoreUserSource(ctx, cq.From.ID, "https://vc.ru/rss/all")
+		if err != nil {
+			b.lg.Errorf("failed storing user source: %v", err)
+			switch {
+			case ent.IsConstraintError(err):
+				b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Вы уже подписаны!"))
+			}
+		} else {
+			b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Подписались на VC.ru"))
+		}
+	default:
+		//TODO: realize removing source here, by checking if data has prefix "removeSource"
+		// ss = query sources
+		// b.db.Cli.User.Update().Where(user.ID(1)).RemoveSources()
+	}
+}
+
+// ExecuteText handles text messages
+func (b *Bot) ExecuteText(m *tgbotapi.Message) {
+	msg := tgbotapi.NewMessage(m.Chat.ID, m.Text)
+	switch m.Text {
+	case "test1":
+		msg.ReplyMarkup = numericKeyboard
+	case "open":
+		msg.ReplyMarkup = mainKeyboard
+	case "🗞  Источники новостей":
+		text := b.getSubsText(m.Chat.ID)
+		msg = tgbotapi.NewMessage(m.Chat.ID, text)
+		msg.ReplyMarkup = subsMainKeyboard
+		msg.ParseMode = tgbotapi.ModeHTML
+	}
+
+	b.BotAPI.Send(msg)
+}
+
 func (b *Bot) RunScheduler() {
 	fmt.Println("started scheduler")
-
-	// Parse RSS Feeds every 5 minutes
-	gocron.Every(5).Minute().Do(b.parseSources)
 
 	// Send posts to users with instant or <=4h sending frequency
 	gocron.Every(5).Minute().Do(b.sendPostsQuick)
@@ -136,7 +151,10 @@ func (b *Bot) RunScheduler() {
 	gocron.Every(1).Day().At("19:00").Do(b.sendPostsPM)
 
 	// Send posts to users with weekly sending frequency
-	gocron.Every(1).Day().Do(b.sendPostsDaily)
+	gocron.Every(1).Day().At("19:00").Do(b.sendPostsDaily)
+
+	// Parse RSS Feeds every 5 minutes
+	gocron.Every(5).Minute().Do(b.parseSources)
 
 	// Start all the pending jobs
 	<-gocron.Start()

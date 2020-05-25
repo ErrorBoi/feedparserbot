@@ -22,6 +22,9 @@ func (User) Fields() []ent.Field {
 		field.String("payment_info").
 			Nillable().
 			Optional(),
+		field.Enum("role").
+			Values("user", "editor", "admin").
+			Default("user"),
 	}
 }
 

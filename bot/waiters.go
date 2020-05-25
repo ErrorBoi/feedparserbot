@@ -2,7 +2,6 @@ package bot
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -26,8 +25,7 @@ var sources = []string{
 }
 
 func (b *Bot) parseSources() {
-	//TODO: fix time to 5 minutes after testing. Or remove hardcoded time and make it env variable
-	now := time.Now().Add(-300 * time.Minute)
+	now := time.Now().Add(-5 * time.Minute)
 
 	for _, src := range sources {
 		fp := gofeed.NewParser()
@@ -128,7 +126,6 @@ func (b *Bot) parseSources() {
 					b.lg.Errorf("Store Post error: %v", err)
 				}
 			}
-			fmt.Printf("%+v\n", item)
 		}
 	}
 }
@@ -192,9 +189,11 @@ func (b *Bot) sendPostsQuick() {
 				b.BotAPI.Send(msg)
 			}
 
-			_, err = settings.Update().SetLastSending(time.Now()).Save(ctx)
-			if err != nil {
-				b.lg.Errorf("failed updating user settings: %v", err)
+			if len(posts) > 0 {
+				_, err = settings.Update().SetLastSending(time.Now()).Save(ctx)
+				if err != nil {
+					b.lg.Errorf("failed updating user settings: %v", err)
+				}
 			}
 		}
 	}
@@ -245,9 +244,11 @@ func (b *Bot) sendPostsAM() {
 				b.BotAPI.Send(msg)
 			}
 
-			_, err = settings.Update().SetLastSending(time.Now()).Save(ctx)
-			if err != nil {
-				b.lg.Errorf("failed updating user settings: %v", err)
+			if len(posts) > 0 {
+				_, err = settings.Update().SetLastSending(time.Now()).Save(ctx)
+				if err != nil {
+					b.lg.Errorf("failed updating user settings: %v", err)
+				}
 			}
 		}
 	}
@@ -298,9 +299,11 @@ func (b *Bot) sendPostsPM() {
 				b.BotAPI.Send(msg)
 			}
 
-			_, err = settings.Update().SetLastSending(time.Now()).Save(ctx)
-			if err != nil {
-				b.lg.Errorf("failed updating user settings: %v", err)
+			if len(posts) > 0 {
+				_, err = settings.Update().SetLastSending(time.Now()).Save(ctx)
+				if err != nil {
+					b.lg.Errorf("failed updating user settings: %v", err)
+				}
 			}
 		}
 	}
@@ -378,9 +381,11 @@ func (b *Bot) sendPostsDaily() {
 				b.BotAPI.Send(msg)
 			}
 
-			_, err = settings.Update().SetLastSending(time.Now()).Save(ctx)
-			if err != nil {
-				b.lg.Errorf("failed updating user settings: %v", err)
+			if len(posts) > 0 {
+				_, err = settings.Update().SetLastSending(time.Now()).Save(ctx)
+				if err != nil {
+					b.lg.Errorf("failed updating user settings: %v", err)
+				}
 			}
 		}
 	}

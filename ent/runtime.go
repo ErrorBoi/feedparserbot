@@ -28,6 +28,8 @@ func init() {
 	post.UpdateDefaultUpdatedAt = postDescUpdatedAt.UpdateDefault.(func() time.Time)
 	sourceFields := schema.Source{}.Fields()
 	_ = sourceFields
+	userFields := schema.User{}.Fields()
+	_ = userFields
 	usersettingsFields := schema.UserSettings{}.Fields()
 	_ = usersettingsFields
 	// usersettingsDescLastSending is the schema descriptor for last_sending field.

@@ -55,6 +55,20 @@ func (uc *UserCreate) SetNillablePaymentInfo(s *string) *UserCreate {
 	return uc
 }
 
+// SetRole sets the role field.
+func (uc *UserCreate) SetRole(u user.Role) *UserCreate {
+	uc.mutation.SetRole(u)
+	return uc
+}
+
+// SetNillableRole sets the role field if the given value is not nil.
+func (uc *UserCreate) SetNillableRole(u *user.Role) *UserCreate {
+	if u != nil {
+		uc.SetRole(*u)
+	}
+	return uc
+}
+
 // SetSettingsID sets the settings edge to UserSettings by id.
 func (uc *UserCreate) SetSettingsID(id int) *UserCreate {
 	uc.mutation.SetSettingsID(id)
@@ -93,6 +107,15 @@ func (uc *UserCreate) AddSources(s ...*Source) *UserCreate {
 func (uc *UserCreate) Save(ctx context.Context) (*User, error) {
 	if _, ok := uc.mutation.TgID(); !ok {
 		return nil, errors.New("ent: missing required field \"tg_id\"")
+	}
+	if _, ok := uc.mutation.Role(); !ok {
+		v := user.DefaultRole
+		uc.mutation.SetRole(v)
+	}
+	if v, ok := uc.mutation.Role(); ok {
+		if err := user.RoleValidator(v); err != nil {
+			return nil, fmt.Errorf("ent: validator failed for field \"role\": %v", err)
+		}
 	}
 	var (
 		err  error
@@ -163,6 +186,14 @@ func (uc *UserCreate) sqlSave(ctx context.Context) (*User, error) {
 			Column: user.FieldPaymentInfo,
 		})
 		u.PaymentInfo = &value
+	}
+	if value, ok := uc.mutation.Role(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeEnum,
+			Value:  value,
+			Column: user.FieldRole,
+		})
+		u.Role = value
 	}
 	if nodes := uc.mutation.SettingsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

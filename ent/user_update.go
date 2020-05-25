@@ -82,6 +82,20 @@ func (uu *UserUpdate) ClearPaymentInfo() *UserUpdate {
 	return uu
 }
 
+// SetRole sets the role field.
+func (uu *UserUpdate) SetRole(u user.Role) *UserUpdate {
+	uu.mutation.SetRole(u)
+	return uu
+}
+
+// SetNillableRole sets the role field if the given value is not nil.
+func (uu *UserUpdate) SetNillableRole(u *user.Role) *UserUpdate {
+	if u != nil {
+		uu.SetRole(*u)
+	}
+	return uu
+}
+
 // SetSettingsID sets the settings edge to UserSettings by id.
 func (uu *UserUpdate) SetSettingsID(id int) *UserUpdate {
 	uu.mutation.SetSettingsID(id)
@@ -139,6 +153,11 @@ func (uu *UserUpdate) RemoveSources(s ...*Source) *UserUpdate {
 
 // Save executes the query and returns the number of rows/vertices matched by this operation.
 func (uu *UserUpdate) Save(ctx context.Context) (int, error) {
+	if v, ok := uu.mutation.Role(); ok {
+		if err := user.RoleValidator(v); err != nil {
+			return 0, fmt.Errorf("ent: validator failed for field \"role\": %v", err)
+		}
+	}
 
 	var (
 		err      error
@@ -244,6 +263,13 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		_spec.Fields.Clear = append(_spec.Fields.Clear, &sqlgraph.FieldSpec{
 			Type:   field.TypeString,
 			Column: user.FieldPaymentInfo,
+		})
+	}
+	if value, ok := uu.mutation.Role(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeEnum,
+			Value:  value,
+			Column: user.FieldRole,
 		})
 	}
 	if uu.mutation.SettingsCleared() {
@@ -390,6 +416,20 @@ func (uuo *UserUpdateOne) ClearPaymentInfo() *UserUpdateOne {
 	return uuo
 }
 
+// SetRole sets the role field.
+func (uuo *UserUpdateOne) SetRole(u user.Role) *UserUpdateOne {
+	uuo.mutation.SetRole(u)
+	return uuo
+}
+
+// SetNillableRole sets the role field if the given value is not nil.
+func (uuo *UserUpdateOne) SetNillableRole(u *user.Role) *UserUpdateOne {
+	if u != nil {
+		uuo.SetRole(*u)
+	}
+	return uuo
+}
+
 // SetSettingsID sets the settings edge to UserSettings by id.
 func (uuo *UserUpdateOne) SetSettingsID(id int) *UserUpdateOne {
 	uuo.mutation.SetSettingsID(id)
@@ -447,6 +487,11 @@ func (uuo *UserUpdateOne) RemoveSources(s ...*Source) *UserUpdateOne {
 
 // Save executes the query and returns the updated entity.
 func (uuo *UserUpdateOne) Save(ctx context.Context) (*User, error) {
+	if v, ok := uuo.mutation.Role(); ok {
+		if err := user.RoleValidator(v); err != nil {
+			return nil, fmt.Errorf("ent: validator failed for field \"role\": %v", err)
+		}
+	}
 
 	var (
 		err  error
@@ -550,6 +595,13 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (u *User, err error) {
 		_spec.Fields.Clear = append(_spec.Fields.Clear, &sqlgraph.FieldSpec{
 			Type:   field.TypeString,
 			Column: user.FieldPaymentInfo,
+		})
+	}
+	if value, ok := uuo.mutation.Role(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeEnum,
+			Value:  value,
+			Column: user.FieldRole,
 		})
 	}
 	if uuo.mutation.SettingsCleared() {

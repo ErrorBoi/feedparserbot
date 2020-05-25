@@ -2,14 +2,19 @@
 
 package user
 
+import (
+	"fmt"
+)
+
 const (
 	// Label holds the string label denoting the user type in the database.
 	Label = "user"
 	// FieldID holds the string denoting the id field in the database.
-	FieldID          = "id"    // FieldEmail holds the string denoting the email vertex property in the database.
-	FieldEmail       = "email" // FieldTgID holds the string denoting the tg_id vertex property in the database.
-	FieldTgID        = "tg_id" // FieldPaymentInfo holds the string denoting the payment_info vertex property in the database.
-	FieldPaymentInfo = "payment_info"
+	FieldID          = "id"           // FieldEmail holds the string denoting the email vertex property in the database.
+	FieldEmail       = "email"        // FieldTgID holds the string denoting the tg_id vertex property in the database.
+	FieldTgID        = "tg_id"        // FieldPaymentInfo holds the string denoting the payment_info vertex property in the database.
+	FieldPaymentInfo = "payment_info" // FieldRole holds the string denoting the role vertex property in the database.
+	FieldRole        = "role"
 
 	// EdgeSettings holds the string denoting the settings edge name in mutations.
 	EdgeSettings = "settings"
@@ -38,6 +43,7 @@ var Columns = []string{
 	FieldEmail,
 	FieldTgID,
 	FieldPaymentInfo,
+	FieldRole,
 }
 
 var (
@@ -45,3 +51,32 @@ var (
 	// primary key for the sources relation (M2M).
 	SourcesPrimaryKey = []string{"user_id", "source_id"}
 )
+
+var ()
+
+// Role defines the type for the role enum field.
+type Role string
+
+// RoleUser is the default Role.
+const DefaultRole = RoleUser
+
+// Role values.
+const (
+	RoleUser   Role = "user"
+	RoleEditor Role = "editor"
+	RoleAdmin  Role = "admin"
+)
+
+func (s Role) String() string {
+	return string(s)
+}
+
+// RoleValidator is a validator for the "r" field enum values. It is called by the builders before save.
+func RoleValidator(r Role) error {
+	switch r {
+	case RoleUser, RoleEditor, RoleAdmin:
+		return nil
+	default:
+		return fmt.Errorf("user: invalid enum value for role field: %q", r)
+	}
+}
