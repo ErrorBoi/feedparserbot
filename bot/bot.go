@@ -3,6 +3,7 @@ package bot
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -10,7 +11,9 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/ErrorBoi/feedparserbot/db"
-	"github.com/ErrorBoi/feedparserbot/ent"
+	"github.com/ErrorBoi/feedparserbot/ent/source"
+	"github.com/ErrorBoi/feedparserbot/ent/user"
+	"github.com/ErrorBoi/feedparserbot/ent/usersettings"
 )
 
 type Bot struct {
@@ -74,6 +77,8 @@ func (b *Bot) ExecuteCommand(m *tgbotapi.Message) {
 		go b.start(m)
 	case "help":
 		go b.help(m)
+	case "add":
+		go b.add(m)
 	default:
 		if m.Chat.IsPrivate() {
 			msg := tgbotapi.NewMessage(m.Chat.ID, "К сожалению, я не знаю такой команды. "+
@@ -86,11 +91,7 @@ func (b *Bot) ExecuteCommand(m *tgbotapi.Message) {
 
 // ExecuteCallbackQuery handles callback queries
 func (b *Bot) ExecuteCallbackQuery(cq *tgbotapi.CallbackQuery) {
-	ctx := context.Background()
 	switch cq.Data {
-	case "3":
-		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID, "UPD!~")
-		b.BotAPI.Send(msg)
 	case "sub":
 		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID,
 			"Выберите источники, на которые хотите подписаться:")
@@ -98,42 +99,215 @@ func (b *Bot) ExecuteCallbackQuery(cq *tgbotapi.CallbackQuery) {
 		b.BotAPI.Send(msg)
 	case "backSubscribeKeyboard":
 		text := b.getSubsText(cq.Message.Chat.ID)
-
 		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID, text)
 		msg.ReplyMarkup = &subsMainKeyboard
 		msg.ParseMode = tgbotapi.ModeHTML
-
 		b.BotAPI.Send(msg)
 	case "subVC":
-		err := b.db.StoreUserSource(ctx, cq.From.ID, "https://vc.ru/rss/all")
+		b.subUserToSource(cq, "https://vc.ru/rss/all")
+	case "subRB":
+		b.subUserToSource(cq, "https://rb.ru/feeds/all")
+	case "subFontanka":
+		b.subUserToSource(cq, "https://www.fontanka.ru/fontanka.rss")
+	case "subForbes":
+		b.subUserToSource(cq, "https://www.forbes.ru/newrss.xml")
+	case "subRBHubs":
+		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID, subRBHubsText)
+		msg.ReplyMarkup = &subHubKeyboard
+		msg.ParseMode = tgbotapi.ModeHTML
+		b.BotAPI.Send(msg)
+	case "subVCHubs":
+		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID, subVCHubsText)
+		msg.ReplyMarkup = &subHubKeyboard
+		msg.ParseMode = tgbotapi.ModeHTML
+		b.BotAPI.Send(msg)
+	case "unsub":
+		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID,
+			"Кликните на источник, от которого хотите отписаться:")
+		unsubKeyboard, err := b.getUnsubKeyboard(cq)
 		if err != nil {
-			b.lg.Errorf("failed storing user source: %v", err)
-			switch {
-			case ent.IsConstraintError(err):
-				b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Вы уже подписаны!"))
-			}
-		} else {
-			b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Подписались на VC.ru"))
+			b.lg.Fatalf("failed generating unsub keyboard: %v", err)
 		}
+		msg.ReplyMarkup = unsubKeyboard
+		msg.ParseMode = tgbotapi.ModeHTML
+		b.BotAPI.Send(msg)
+	case "settings":
+		ctx := context.Background()
+		us, err := b.db.Cli.User.Query().Where(user.TgID(cq.From.ID)).QuerySettings().Only(ctx)
+		if err != nil {
+			b.lg.Errorf("error querying user settings: %v", err)
+		}
+
+		text := fmt.Sprintf(settingsText, FrequencyTextDict[string(us.SendingFrequency)], us.UrgentWords, us.BannedWords, us.Language)
+		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID, text)
+		msg.ReplyMarkup = &settingsMainKeyboard
+		msg.ParseMode = tgbotapi.ModeHTML
+		b.BotAPI.Send(msg)
+	case "frequency":
+		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID,
+			"Выберите желаемую периодичность отправки:")
+		msg.ReplyMarkup = &settingsFreqKeyboard
+		msg.ParseMode = tgbotapi.ModeHTML
+		b.BotAPI.Send(msg)
+	case "instant":
+		ctx := context.Background()
+		_, err := b.db.Cli.UserSettings.Update().
+			Where(usersettings.HasUserWith(user.TgID(cq.From.ID))).
+			SetSendingFrequency(usersettings.SendingFrequencyInstant).Save(ctx)
+		if err != nil {
+			b.lg.Errorf("failed updating user settings: %v", err)
+		}
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+	case "1h":
+		ctx := context.Background()
+		_, err := b.db.Cli.UserSettings.Update().
+			Where(usersettings.HasUserWith(user.TgID(cq.From.ID))).
+			SetSendingFrequency(usersettings.SendingFrequency1h).Save(ctx)
+		if err != nil {
+			b.lg.Errorf("failed updating user settings: %v", err)
+		}
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+	case "4h":
+		ctx := context.Background()
+		_, err := b.db.Cli.UserSettings.Update().
+			Where(usersettings.HasUserWith(user.TgID(cq.From.ID))).
+			SetSendingFrequency(usersettings.SendingFrequency4h).Save(ctx)
+		if err != nil {
+			b.lg.Errorf("failed updating user settings: %v", err)
+		}
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+	case "am":
+		ctx := context.Background()
+		_, err := b.db.Cli.UserSettings.Update().
+			Where(usersettings.HasUserWith(user.TgID(cq.From.ID))).
+			SetSendingFrequency(usersettings.SendingFrequencyAm).Save(ctx)
+		if err != nil {
+			b.lg.Errorf("failed updating user settings: %v", err)
+		}
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+	case "pm":
+		ctx := context.Background()
+		_, err := b.db.Cli.UserSettings.Update().
+			Where(usersettings.HasUserWith(user.TgID(cq.From.ID))).
+			SetSendingFrequency(usersettings.SendingFrequencyPm).Save(ctx)
+		if err != nil {
+			b.lg.Errorf("failed updating user settings: %v", err)
+		}
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+	case "mon":
+		ctx := context.Background()
+		_, err := b.db.Cli.UserSettings.Update().
+			Where(usersettings.HasUserWith(user.TgID(cq.From.ID))).
+			SetSendingFrequency(usersettings.SendingFrequencyMon).Save(ctx)
+		if err != nil {
+			b.lg.Errorf("failed updating user settings: %v", err)
+		}
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+	case "tue":
+		ctx := context.Background()
+		_, err := b.db.Cli.UserSettings.Update().
+			Where(usersettings.HasUserWith(user.TgID(cq.From.ID))).
+			SetSendingFrequency(usersettings.SendingFrequencyTue).Save(ctx)
+		if err != nil {
+			b.lg.Errorf("failed updating user settings: %v", err)
+		}
+	case "wed":
+		ctx := context.Background()
+		_, err := b.db.Cli.UserSettings.Update().
+			Where(usersettings.HasUserWith(user.TgID(cq.From.ID))).
+			SetSendingFrequency(usersettings.SendingFrequencyWed).Save(ctx)
+		if err != nil {
+			b.lg.Errorf("failed updating user settings: %v", err)
+		}
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+	case "thu":
+		ctx := context.Background()
+		_, err := b.db.Cli.UserSettings.Update().
+			Where(usersettings.HasUserWith(user.TgID(cq.From.ID))).
+			SetSendingFrequency(usersettings.SendingFrequencyThu).Save(ctx)
+		if err != nil {
+			b.lg.Errorf("failed updating user settings: %v", err)
+		}
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+	case "fri":
+		ctx := context.Background()
+		_, err := b.db.Cli.UserSettings.Update().
+			Where(usersettings.HasUserWith(user.TgID(cq.From.ID))).
+			SetSendingFrequency(usersettings.SendingFrequencyFri).Save(ctx)
+		if err != nil {
+			b.lg.Errorf("failed updating user settings: %v", err)
+		}
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+	case "sat":
+		ctx := context.Background()
+		_, err := b.db.Cli.UserSettings.Update().
+			Where(usersettings.HasUserWith(user.TgID(cq.From.ID))).
+			SetSendingFrequency(usersettings.SendingFrequencyFri).Save(ctx)
+		if err != nil {
+			b.lg.Errorf("failed updating user settings: %v", err)
+		}
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+	case "sun":
+		ctx := context.Background()
+		_, err := b.db.Cli.UserSettings.Update().
+			Where(usersettings.HasUserWith(user.TgID(cq.From.ID))).
+			SetSendingFrequency(usersettings.SendingFrequencySun).Save(ctx)
+		if err != nil {
+			b.lg.Errorf("failed updating user settings: %v", err)
+		}
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
 	default:
-		//TODO: realize removing source here, by checking if data has prefix "removeSource"
-		// ss = query sources
-		// b.db.Cli.User.Update().Where(user.ID(1)).RemoveSources()
+		if strings.HasPrefix(cq.Data, "unsubSource") {
+			ctx := context.Background()
+
+			sourceID := strings.TrimPrefix(cq.Data, "unsubSource")
+			intSourceID, err := strconv.Atoi(sourceID)
+			if err != nil {
+				b.lg.Errorf("failed converting string to int: %v", err)
+			}
+
+			s, err := b.db.Cli.Source.Query().Where(source.ID(intSourceID)).Only(ctx)
+			if err != nil {
+				b.lg.Errorf("failed querying source: %v", err)
+			}
+
+			_, err = b.db.Cli.User.Update().RemoveSources(s).Save(ctx)
+			if err != nil {
+				b.lg.Errorf("failed updating user: %v", err)
+			}
+
+			msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID,
+				"Кликните на источник, от которого хотите отписаться:")
+			unsubKeyboard, err := b.getUnsubKeyboard(cq)
+			if err != nil {
+				b.lg.Fatalf("failed generating unsub keyboard: %v", err)
+			}
+			msg.ReplyMarkup = unsubKeyboard
+			msg.ParseMode = tgbotapi.ModeHTML
+			b.BotAPI.Send(msg)
+		}
 	}
 }
 
 // ExecuteText handles text messages
 func (b *Bot) ExecuteText(m *tgbotapi.Message) {
-	msg := tgbotapi.NewMessage(m.Chat.ID, m.Text)
+	var msg tgbotapi.MessageConfig
 	switch m.Text {
-	case "test1":
-		msg.ReplyMarkup = numericKeyboard
-	case "open":
-		msg.ReplyMarkup = mainKeyboard
 	case "🗞  Источники новостей":
 		text := b.getSubsText(m.Chat.ID)
 		msg = tgbotapi.NewMessage(m.Chat.ID, text)
 		msg.ReplyMarkup = subsMainKeyboard
+		msg.ParseMode = tgbotapi.ModeHTML
+	case "⚙️ Настройки":
+		ctx := context.Background()
+		us, err := b.db.Cli.User.Query().Where(user.TgID(m.From.ID)).QuerySettings().Only(ctx)
+		if err != nil {
+			b.lg.Errorf("error querying user settings: %v", err)
+		}
+
+		text := fmt.Sprintf(settingsText, FrequencyTextDict[string(us.SendingFrequency)], us.UrgentWords, us.BannedWords, us.Language)
+		msg = tgbotapi.NewMessage(m.Chat.ID, text)
+		msg.ReplyMarkup = settingsMainKeyboard
 		msg.ParseMode = tgbotapi.ModeHTML
 	}
 
