@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ErrorBoi/feedparserbot/ent"
+	"github.com/ErrorBoi/feedparserbot/ent/post"
 	"github.com/ErrorBoi/feedparserbot/ent/schema"
 	"github.com/ErrorBoi/feedparserbot/ent/source"
 )
@@ -37,15 +38,28 @@ type StorePost struct {
 }
 
 func (db *DB) StorePost(ctx context.Context, post StorePost) (*ent.Post, error) {
-	resp, err := db.Tr.Translate("en", post.Title)
+	titleEN, err := db.Tr.Translate("en", post.Title)
 	if err != nil {
 		return nil, err
 	}
-
 	titleTransactions := schema.Translations{
 		RU: post.Title,
-		EN: resp.Result(),
+		EN: titleEN.Result(),
 	}
+
+	var descriptionTranslations schema.Translations
+	if len(post.Description) != 0 {
+		descriptionEN, err := db.Tr.Translate("en", post.Description)
+		if err != nil {
+			return nil, err
+		}
+		descriptionTranslations = schema.Translations{
+			RU: post.Description,
+			EN: descriptionEN.Result(),
+		}
+	}
+
+
 
 	src, err := db.Cli.Source.Query().Where(source.URL(post.SourceURL)).Only(ctx)
 	if err != nil {
@@ -66,6 +80,7 @@ func (db *DB) StorePost(ctx context.Context, post StorePost) (*ent.Post, error) 
 		SetURL(post.Url).
 		SetPublishedAt(post.PublishedAt).
 		SetDescription(strings.TrimSpace(post.Description)).
+		SetDescriptionTranslations(descriptionTranslations).
 		SetH1(strings.TrimSpace(h1)).
 		SetContent(strings.TrimSpace(post.Content)).
 		SetSource(src).
@@ -75,4 +90,24 @@ func (db *DB) StorePost(ctx context.Context, post StorePost) (*ent.Post, error) 
 	}
 
 	return pst, nil
+}
+
+func (db *DB) RewritePost(ctx context.Context, postID int, subject string, updatedBy int) error {
+	subjectEN, err := db.Tr.Translate("en", subject)
+	if err != nil {
+		return err
+	}
+	subjectTransactions := schema.Translations{
+		RU: subject,
+		EN: subjectEN.Result(),
+	}
+
+	_, err = db.Cli.Post.Update().
+		Where(post.ID(postID)).
+		SetSubject(subject).
+		SetSubjectTranslations(subjectTransactions).
+		SetUpdatedBy(updatedBy).
+		Save(ctx)
+
+	return err
 }

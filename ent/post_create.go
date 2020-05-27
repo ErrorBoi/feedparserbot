@@ -80,6 +80,20 @@ func (pc *PostCreate) SetDescription(s string) *PostCreate {
 	return pc
 }
 
+// SetDescriptionTranslations sets the description_translations field.
+func (pc *PostCreate) SetDescriptionTranslations(s schema.Translations) *PostCreate {
+	pc.mutation.SetDescriptionTranslations(s)
+	return pc
+}
+
+// SetNillableDescriptionTranslations sets the description_translations field if the given value is not nil.
+func (pc *PostCreate) SetNillableDescriptionTranslations(s *schema.Translations) *PostCreate {
+	if s != nil {
+		pc.SetDescriptionTranslations(*s)
+	}
+	return pc
+}
+
 // SetH1 sets the h1 field.
 func (pc *PostCreate) SetH1(s string) *PostCreate {
 	pc.mutation.SetH1(s)
@@ -285,6 +299,14 @@ func (pc *PostCreate) sqlSave(ctx context.Context) (*Post, error) {
 			Column: post.FieldDescription,
 		})
 		po.Description = value
+	}
+	if value, ok := pc.mutation.DescriptionTranslations(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeJSON,
+			Value:  value,
+			Column: post.FieldDescriptionTranslations,
+		})
+		po.DescriptionTranslations = value
 	}
 	if value, ok := pc.mutation.H1(); ok {
 		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{

@@ -289,25 +289,26 @@ func (m *GlobalsettingsMutation) ResetEdge(name string) error {
 // nodes in the graph.
 type PostMutation struct {
 	config
-	op                   Op
-	typ                  string
-	id                   *int
-	title                *string
-	title_translations   *schema.Translations
-	subject              *string
-	subject_translations *schema.Translations
-	url                  *string
-	published_at         *time.Time
-	description          *string
-	h1                   *string
-	content              *string
-	created_at           *time.Time
-	updated_at           *time.Time
-	updated_by           *int
-	addupdated_by        *int
-	clearedFields        map[string]struct{}
-	source               *int
-	clearedsource        bool
+	op                       Op
+	typ                      string
+	id                       *int
+	title                    *string
+	title_translations       *schema.Translations
+	subject                  *string
+	subject_translations     *schema.Translations
+	url                      *string
+	published_at             *time.Time
+	description              *string
+	description_translations *schema.Translations
+	h1                       *string
+	content                  *string
+	created_at               *time.Time
+	updated_at               *time.Time
+	updated_by               *int
+	addupdated_by            *int
+	clearedFields            map[string]struct{}
+	source                   *int
+	clearedsource            bool
 }
 
 var _ ent.Mutation = (*PostMutation)(nil)
@@ -509,6 +510,38 @@ func (m *PostMutation) ResetDescription() {
 	m.description = nil
 }
 
+// SetDescriptionTranslations sets the description_translations field.
+func (m *PostMutation) SetDescriptionTranslations(s schema.Translations) {
+	m.description_translations = &s
+}
+
+// DescriptionTranslations returns the description_translations value in the mutation.
+func (m *PostMutation) DescriptionTranslations() (r schema.Translations, exists bool) {
+	v := m.description_translations
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearDescriptionTranslations clears the value of description_translations.
+func (m *PostMutation) ClearDescriptionTranslations() {
+	m.description_translations = nil
+	m.clearedFields[post.FieldDescriptionTranslations] = struct{}{}
+}
+
+// DescriptionTranslationsCleared returns if the field description_translations was cleared in this mutation.
+func (m *PostMutation) DescriptionTranslationsCleared() bool {
+	_, ok := m.clearedFields[post.FieldDescriptionTranslations]
+	return ok
+}
+
+// ResetDescriptionTranslations reset all changes of the description_translations field.
+func (m *PostMutation) ResetDescriptionTranslations() {
+	m.description_translations = nil
+	delete(m.clearedFields, post.FieldDescriptionTranslations)
+}
+
 // SetH1 sets the h1 field.
 func (m *PostMutation) SetH1(s string) {
 	m.h1 = &s
@@ -691,7 +724,7 @@ func (m *PostMutation) Type() string {
 // this mutation. Note that, in order to get all numeric
 // fields that were in/decremented, call AddedFields().
 func (m *PostMutation) Fields() []string {
-	fields := make([]string, 0, 12)
+	fields := make([]string, 0, 13)
 	if m.title != nil {
 		fields = append(fields, post.FieldTitle)
 	}
@@ -712,6 +745,9 @@ func (m *PostMutation) Fields() []string {
 	}
 	if m.description != nil {
 		fields = append(fields, post.FieldDescription)
+	}
+	if m.description_translations != nil {
+		fields = append(fields, post.FieldDescriptionTranslations)
 	}
 	if m.h1 != nil {
 		fields = append(fields, post.FieldH1)
@@ -750,6 +786,8 @@ func (m *PostMutation) Field(name string) (ent.Value, bool) {
 		return m.PublishedAt()
 	case post.FieldDescription:
 		return m.Description()
+	case post.FieldDescriptionTranslations:
+		return m.DescriptionTranslations()
 	case post.FieldH1:
 		return m.H1()
 	case post.FieldContent:
@@ -817,6 +855,13 @@ func (m *PostMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetDescription(v)
+		return nil
+	case post.FieldDescriptionTranslations:
+		v, ok := value.(schema.Translations)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDescriptionTranslations(v)
 		return nil
 	case post.FieldH1:
 		v, ok := value.(string)
@@ -904,6 +949,9 @@ func (m *PostMutation) ClearedFields() []string {
 	if m.FieldCleared(post.FieldSubjectTranslations) {
 		fields = append(fields, post.FieldSubjectTranslations)
 	}
+	if m.FieldCleared(post.FieldDescriptionTranslations) {
+		fields = append(fields, post.FieldDescriptionTranslations)
+	}
 	if m.FieldCleared(post.FieldUpdatedBy) {
 		fields = append(fields, post.FieldUpdatedBy)
 	}
@@ -926,6 +974,9 @@ func (m *PostMutation) ClearField(name string) error {
 		return nil
 	case post.FieldSubjectTranslations:
 		m.ClearSubjectTranslations()
+		return nil
+	case post.FieldDescriptionTranslations:
+		m.ClearDescriptionTranslations()
 		return nil
 	case post.FieldUpdatedBy:
 		m.ClearUpdatedBy()
@@ -959,6 +1010,9 @@ func (m *PostMutation) ResetField(name string) error {
 		return nil
 	case post.FieldDescription:
 		m.ResetDescription()
+		return nil
+	case post.FieldDescriptionTranslations:
+		m.ResetDescriptionTranslations()
 		return nil
 	case post.FieldH1:
 		m.ResetH1()

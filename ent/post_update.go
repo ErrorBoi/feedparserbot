@@ -100,6 +100,26 @@ func (pu *PostUpdate) SetDescription(s string) *PostUpdate {
 	return pu
 }
 
+// SetDescriptionTranslations sets the description_translations field.
+func (pu *PostUpdate) SetDescriptionTranslations(s schema.Translations) *PostUpdate {
+	pu.mutation.SetDescriptionTranslations(s)
+	return pu
+}
+
+// SetNillableDescriptionTranslations sets the description_translations field if the given value is not nil.
+func (pu *PostUpdate) SetNillableDescriptionTranslations(s *schema.Translations) *PostUpdate {
+	if s != nil {
+		pu.SetDescriptionTranslations(*s)
+	}
+	return pu
+}
+
+// ClearDescriptionTranslations clears the value of description_translations.
+func (pu *PostUpdate) ClearDescriptionTranslations() *PostUpdate {
+	pu.mutation.ClearDescriptionTranslations()
+	return pu
+}
+
 // SetH1 sets the h1 field.
 func (pu *PostUpdate) SetH1(s string) *PostUpdate {
 	pu.mutation.SetH1(s)
@@ -318,6 +338,19 @@ func (pu *PostUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Column: post.FieldDescription,
 		})
 	}
+	if value, ok := pu.mutation.DescriptionTranslations(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeJSON,
+			Value:  value,
+			Column: post.FieldDescriptionTranslations,
+		})
+	}
+	if pu.mutation.DescriptionTranslationsCleared() {
+		_spec.Fields.Clear = append(_spec.Fields.Clear, &sqlgraph.FieldSpec{
+			Type:   field.TypeJSON,
+			Column: post.FieldDescriptionTranslations,
+		})
+	}
 	if value, ok := pu.mutation.H1(); ok {
 		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
 			Type:   field.TypeString,
@@ -486,6 +519,26 @@ func (puo *PostUpdateOne) SetPublishedAt(t time.Time) *PostUpdateOne {
 // SetDescription sets the description field.
 func (puo *PostUpdateOne) SetDescription(s string) *PostUpdateOne {
 	puo.mutation.SetDescription(s)
+	return puo
+}
+
+// SetDescriptionTranslations sets the description_translations field.
+func (puo *PostUpdateOne) SetDescriptionTranslations(s schema.Translations) *PostUpdateOne {
+	puo.mutation.SetDescriptionTranslations(s)
+	return puo
+}
+
+// SetNillableDescriptionTranslations sets the description_translations field if the given value is not nil.
+func (puo *PostUpdateOne) SetNillableDescriptionTranslations(s *schema.Translations) *PostUpdateOne {
+	if s != nil {
+		puo.SetDescriptionTranslations(*s)
+	}
+	return puo
+}
+
+// ClearDescriptionTranslations clears the value of description_translations.
+func (puo *PostUpdateOne) ClearDescriptionTranslations() *PostUpdateOne {
+	puo.mutation.ClearDescriptionTranslations()
 	return puo
 }
 
@@ -703,6 +756,19 @@ func (puo *PostUpdateOne) sqlSave(ctx context.Context) (po *Post, err error) {
 			Type:   field.TypeString,
 			Value:  value,
 			Column: post.FieldDescription,
+		})
+	}
+	if value, ok := puo.mutation.DescriptionTranslations(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeJSON,
+			Value:  value,
+			Column: post.FieldDescriptionTranslations,
+		})
+	}
+	if puo.mutation.DescriptionTranslationsCleared() {
+		_spec.Fields.Clear = append(_spec.Fields.Clear, &sqlgraph.FieldSpec{
+			Type:   field.TypeJSON,
+			Column: post.FieldDescriptionTranslations,
 		})
 	}
 	if value, ok := puo.mutation.H1(); ok {

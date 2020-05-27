@@ -72,21 +72,47 @@ func (b *Bot) InitUpdates(BotToken string) error {
 func (b *Bot) ExecuteCommand(m *tgbotapi.Message) {
 	command := strings.ToLower(m.Command())
 
+	ctx := context.Background()
+
+	var language string
+	us, err := b.db.Cli.User.Query().Where(user.TgID(m.From.ID)).QuerySettings().Only(ctx)
+	if err != nil {
+		b.lg.Errorf("failed querying user settings: %v", err)
+		language = "RU"
+	} else {
+		language = string(us.Language)
+	}
+
 	switch command {
 	case "start":
-		go b.start(m)
+		go b.start(m, language)
 	case "help":
-		go b.help(m)
+		go b.help(m, language)
 	case "add":
-		go b.add(m)
+		go b.add(m, language)
 	case "urgent":
-		go b.urgent(m)
+		go b.urgent(m, language)
 	case "banned":
-		go b.bannedWords(m)
+		go b.bannedWords(m, language)
+	case "super":
+		go b.super(m, language)
+	case "set_editor":
+		go b.setEditor(m, language)
+	case "remove_editor":
+		go b.removeEditor(m, language)
+	case "set_clickbait":
+		go b.setClickbaitWords(m, language)
+	case "rewrite":
+		go b.rewritePost(m, language)
 	default:
 		if m.Chat.IsPrivate() {
-			msg := tgbotapi.NewMessage(m.Chat.ID, "К сожалению, я не знаю такой команды. "+
-				"Напишите /help для получения справки по командам")
+			ctx := context.Background()
+
+			us, err := b.db.Cli.User.Query().Where(user.TgID(m.From.ID)).QuerySettings().Only(ctx)
+			if err != nil {
+				b.lg.Errorf("failed querying user settings: %v", err)
+			}
+			msg := tgbotapi.NewMessage(m.Chat.ID, UnknownCommandMessage[string(us.Language)])
 			msg.ReplyToMessageID = m.MessageID
 			b.BotAPI.Send(msg)
 		}
@@ -95,40 +121,51 @@ func (b *Bot) ExecuteCommand(m *tgbotapi.Message) {
 
 // ExecuteCallbackQuery handles callback queries
 func (b *Bot) ExecuteCallbackQuery(cq *tgbotapi.CallbackQuery) {
+	ctx := context.Background()
+
+	us, err := b.db.Cli.User.Query().Where(user.TgID(cq.From.ID)).QuerySettings().Only(ctx)
+	if err != nil {
+		b.lg.Errorf("failed querying user settings: %v", err)
+	}
+	language := string(us.Language)
+
 	switch cq.Data {
 	case "sub":
-		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID,
-			"Выберите источники, на которые хотите подписаться:")
-		msg.ReplyMarkup = &subscribeKeyboard
+		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID, SelectSourcesMessage[language])
+		keyboard := subscribeKeyboard[language]
+		msg.ReplyMarkup = &keyboard
 		b.BotAPI.Send(msg)
 	case "backSubscribeKeyboard":
-		text := b.getSubsText(cq.Message.Chat.ID)
+		text := b.getSubsText(cq.Message.Chat.ID, language)
 		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID, text)
-		msg.ReplyMarkup = &subsMainKeyboard
+		keyboard := subsMainKeyboard[language]
+		msg.ReplyMarkup = &keyboard
 		msg.ParseMode = tgbotapi.ModeHTML
 		b.BotAPI.Send(msg)
 	case "subVC":
-		b.subUserToSource(cq, "https://vc.ru/rss/all")
+		b.subUserToSource(cq, "https://vc.ru/rss/all", language)
 	case "subRB":
-		b.subUserToSource(cq, "https://rb.ru/feeds/all")
+		b.subUserToSource(cq, "https://rb.ru/feeds/all", language)
 	case "subFontanka":
-		b.subUserToSource(cq, "https://www.fontanka.ru/fontanka.rss")
+		b.subUserToSource(cq, "https://www.fontanka.ru/fontanka.rss", language)
 	case "subForbes":
-		b.subUserToSource(cq, "https://www.forbes.ru/newrss.xml")
+		b.subUserToSource(cq, "https://www.forbes.ru/newrss.xml", language)
 	case "subRBHubs":
-		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID, subRBHubsText)
-		msg.ReplyMarkup = &subHubKeyboard
+		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID, SubRBHubsMessage[language])
+		keyboard := subHubKeyboard[language]
+		msg.ReplyMarkup = &keyboard
 		msg.ParseMode = tgbotapi.ModeHTML
 		b.BotAPI.Send(msg)
 	case "subVCHubs":
-		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID, subVCHubsText)
-		msg.ReplyMarkup = &subHubKeyboard
+		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID, SubVCHubsMessage[language])
+		keyboard := subHubKeyboard[language]
+		msg.ReplyMarkup = &keyboard
 		msg.ParseMode = tgbotapi.ModeHTML
 		b.BotAPI.Send(msg)
 	case "unsub":
 		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID,
-			"Кликните на источник, от которого хотите отписаться:")
-		unsubKeyboard, err := b.getUnsubKeyboard(cq)
+			SelectUnsubSourceMessage[language])
+		unsubKeyboard, err := b.getUnsubKeyboard(cq, language)
 		if err != nil {
 			b.lg.Fatalf("failed generating unsub keyboard: %v", err)
 		}
@@ -142,15 +179,16 @@ func (b *Bot) ExecuteCallbackQuery(cq *tgbotapi.CallbackQuery) {
 			b.lg.Errorf("error querying user settings: %v", err)
 		}
 
-		text := fmt.Sprintf(settingsText, FrequencyTextDict[string(us.SendingFrequency)], us.UrgentWords, us.BannedWords, us.Language)
+		text := fmt.Sprintf(SettingsMessage[language], FrequencyTextDict[language][string(us.SendingFrequency)], us.UrgentWords, us.BannedWords, us.Language)
 		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID, text)
-		msg.ReplyMarkup = &settingsMainKeyboard
+		keyboard := settingsMainKeyboard[language]
+		msg.ReplyMarkup = &keyboard
 		msg.ParseMode = tgbotapi.ModeHTML
 		b.BotAPI.Send(msg)
 	case "frequency":
-		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID,
-			"Выберите желаемую периодичность отправки:")
-		msg.ReplyMarkup = &settingsFreqKeyboard
+		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID, SelectFrequencyMessage[language])
+		keyboard := settingsFreqKeyboard[language]
+		msg.ReplyMarkup = &keyboard
 		msg.ParseMode = tgbotapi.ModeHTML
 		b.BotAPI.Send(msg)
 	case "instant":
@@ -161,7 +199,7 @@ func (b *Bot) ExecuteCallbackQuery(cq *tgbotapi.CallbackQuery) {
 		if err != nil {
 			b.lg.Errorf("failed updating user settings: %v", err)
 		}
-		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, FrequencyUpdatedMessage[language]))
 	case "1h":
 		ctx := context.Background()
 		_, err := b.db.Cli.UserSettings.Update().
@@ -170,7 +208,7 @@ func (b *Bot) ExecuteCallbackQuery(cq *tgbotapi.CallbackQuery) {
 		if err != nil {
 			b.lg.Errorf("failed updating user settings: %v", err)
 		}
-		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, FrequencyUpdatedMessage[language]))
 	case "4h":
 		ctx := context.Background()
 		_, err := b.db.Cli.UserSettings.Update().
@@ -179,7 +217,7 @@ func (b *Bot) ExecuteCallbackQuery(cq *tgbotapi.CallbackQuery) {
 		if err != nil {
 			b.lg.Errorf("failed updating user settings: %v", err)
 		}
-		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, FrequencyUpdatedMessage[language]))
 	case "am":
 		ctx := context.Background()
 		_, err := b.db.Cli.UserSettings.Update().
@@ -188,7 +226,7 @@ func (b *Bot) ExecuteCallbackQuery(cq *tgbotapi.CallbackQuery) {
 		if err != nil {
 			b.lg.Errorf("failed updating user settings: %v", err)
 		}
-		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, FrequencyUpdatedMessage[language]))
 	case "pm":
 		ctx := context.Background()
 		_, err := b.db.Cli.UserSettings.Update().
@@ -197,7 +235,7 @@ func (b *Bot) ExecuteCallbackQuery(cq *tgbotapi.CallbackQuery) {
 		if err != nil {
 			b.lg.Errorf("failed updating user settings: %v", err)
 		}
-		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, FrequencyUpdatedMessage[language]))
 	case "mon":
 		ctx := context.Background()
 		_, err := b.db.Cli.UserSettings.Update().
@@ -206,7 +244,7 @@ func (b *Bot) ExecuteCallbackQuery(cq *tgbotapi.CallbackQuery) {
 		if err != nil {
 			b.lg.Errorf("failed updating user settings: %v", err)
 		}
-		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, FrequencyUpdatedMessage[language]))
 	case "tue":
 		ctx := context.Background()
 		_, err := b.db.Cli.UserSettings.Update().
@@ -215,6 +253,7 @@ func (b *Bot) ExecuteCallbackQuery(cq *tgbotapi.CallbackQuery) {
 		if err != nil {
 			b.lg.Errorf("failed updating user settings: %v", err)
 		}
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, FrequencyUpdatedMessage[language]))
 	case "wed":
 		ctx := context.Background()
 		_, err := b.db.Cli.UserSettings.Update().
@@ -223,7 +262,7 @@ func (b *Bot) ExecuteCallbackQuery(cq *tgbotapi.CallbackQuery) {
 		if err != nil {
 			b.lg.Errorf("failed updating user settings: %v", err)
 		}
-		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, FrequencyUpdatedMessage[language]))
 	case "thu":
 		ctx := context.Background()
 		_, err := b.db.Cli.UserSettings.Update().
@@ -232,7 +271,7 @@ func (b *Bot) ExecuteCallbackQuery(cq *tgbotapi.CallbackQuery) {
 		if err != nil {
 			b.lg.Errorf("failed updating user settings: %v", err)
 		}
-		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, FrequencyUpdatedMessage[language]))
 	case "fri":
 		ctx := context.Background()
 		_, err := b.db.Cli.UserSettings.Update().
@@ -241,7 +280,7 @@ func (b *Bot) ExecuteCallbackQuery(cq *tgbotapi.CallbackQuery) {
 		if err != nil {
 			b.lg.Errorf("failed updating user settings: %v", err)
 		}
-		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, FrequencyUpdatedMessage[language]))
 	case "sat":
 		ctx := context.Background()
 		_, err := b.db.Cli.UserSettings.Update().
@@ -250,7 +289,7 @@ func (b *Bot) ExecuteCallbackQuery(cq *tgbotapi.CallbackQuery) {
 		if err != nil {
 			b.lg.Errorf("failed updating user settings: %v", err)
 		}
-		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, FrequencyUpdatedMessage[language]))
 	case "sun":
 		ctx := context.Background()
 		_, err := b.db.Cli.UserSettings.Update().
@@ -259,49 +298,54 @@ func (b *Bot) ExecuteCallbackQuery(cq *tgbotapi.CallbackQuery) {
 		if err != nil {
 			b.lg.Errorf("failed updating user settings: %v", err)
 		}
-		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Периодичность изменена"))
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, FrequencyUpdatedMessage[language]))
 	case "urgent":
-		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID,
-			"Вы можете установить \"срочные\" слова, при вхождении "+
-				"которых в заголовок, новости будут отправлены вам вне зависимости от настроек периодичности. "+
-				"Чтобы это сделать - введите /urgent + список слов через запятую. Например:\n /urgent ЛО,Санкт-Петербург,Доллар")
-		msg.ReplyMarkup = &settingsBackKeyboard
+		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID, SetUrgentWordsMessage[language])
+		keyboard := settingsBackKeyboard[language]
+		msg.ReplyMarkup = &keyboard
 		msg.ParseMode = tgbotapi.ModeHTML
 		b.BotAPI.Send(msg)
 	case "banned_words":
 		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID,
-			"Вы можете установить \"чёрный список\" слов. Если слова из этого списка входят "+
-				"в заголовок новости, она не будет вам отправлена. "+
-				"Чтобы это сделать - введите /banned + список слов через запятую. Например:\n /banned Коронавирус,Поправки")
-		msg.ReplyMarkup = &settingsBackKeyboard
+			SetBannedWordsMessage[language])
+		keyboard := settingsBackKeyboard[language]
+		msg.ReplyMarkup = &keyboard
 		msg.ParseMode = tgbotapi.ModeHTML
 		b.BotAPI.Send(msg)
 	case "language":
-		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID,
-			"Выберите желаемый язык:")
-		msg.ReplyMarkup = &settingsLanguageKeyboard
+		msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID, SelectLanguageMessage[language])
+		keyboard := settingsLanguageKeyboard[language]
+		msg.ReplyMarkup = &keyboard
 		msg.ParseMode = tgbotapi.ModeHTML
 		b.BotAPI.Send(msg)
 	case "ru_language":
 		ctx := context.Background()
 		_, err := b.db.Cli.UserSettings.Update().
 			Where(usersettings.HasUserWith(user.TgID(cq.From.ID))).
-			SetLanguage(usersettings.LanguageRu).
+			SetLanguage(usersettings.LanguageRU).
 			Save(ctx)
 		if err != nil {
 			b.lg.Errorf("failed updating user settings: %v", err)
 		}
-		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Язык изменён"))
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, LanguageChangedMessage["RU"]))
+
+		msg := tgbotapi.NewMessage(cq.Message.Chat.ID, LanguageChangedMessage["RU"])
+		msg.ReplyMarkup = mainKeyboard["RU"]
+		b.BotAPI.Send(msg)
 	case "en_language":
 		ctx := context.Background()
 		_, err := b.db.Cli.UserSettings.Update().
 			Where(usersettings.HasUserWith(user.TgID(cq.From.ID))).
-			SetLanguage(usersettings.LanguageEn).
+			SetLanguage(usersettings.LanguageEN).
 			Save(ctx)
 		if err != nil {
 			b.lg.Errorf("failed updating user settings: %v", err)
 		}
-		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "Язык изменён"))
+		b.BotAPI.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, LanguageChangedMessage["EN"]))
+
+		msg := tgbotapi.NewMessage(cq.Message.Chat.ID, LanguageChangedMessage["EN"])
+		msg.ReplyMarkup = mainKeyboard["EN"]
+		b.BotAPI.Send(msg)
 	default:
 		if strings.HasPrefix(cq.Data, "unsubSource") {
 			ctx := context.Background()
@@ -323,8 +367,8 @@ func (b *Bot) ExecuteCallbackQuery(cq *tgbotapi.CallbackQuery) {
 			}
 
 			msg := tgbotapi.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID,
-				"Кликните на источник, от которого хотите отписаться:")
-			unsubKeyboard, err := b.getUnsubKeyboard(cq)
+				SelectUnsubSourceMessage[language])
+			unsubKeyboard, err := b.getUnsubKeyboard(cq, language)
 			if err != nil {
 				b.lg.Fatalf("failed generating unsub keyboard: %v", err)
 			}
@@ -337,23 +381,31 @@ func (b *Bot) ExecuteCallbackQuery(cq *tgbotapi.CallbackQuery) {
 
 // ExecuteText handles text messages
 func (b *Bot) ExecuteText(m *tgbotapi.Message) {
+	ctx := context.Background()
+
+	us, err := b.db.Cli.User.Query().Where(user.TgID(m.From.ID)).QuerySettings().Only(ctx)
+	if err != nil {
+		b.lg.Errorf("failed querying user settings: %v", err)
+	}
+	language := string(us.Language)
+
 	var msg tgbotapi.MessageConfig
 	switch m.Text {
-	case "🗞  Источники новостей":
-		text := b.getSubsText(m.Chat.ID)
+	case "🗞  Источники новостей", "🗞  Sources":
+		text := b.getSubsText(m.Chat.ID, language)
 		msg = tgbotapi.NewMessage(m.Chat.ID, text)
-		msg.ReplyMarkup = subsMainKeyboard
+		msg.ReplyMarkup = subsMainKeyboard[language]
 		msg.ParseMode = tgbotapi.ModeHTML
-	case "⚙️ Настройки":
+	case "⚙️ Настройки", "⚙️ Settings":
 		ctx := context.Background()
 		us, err := b.db.Cli.User.Query().Where(user.TgID(m.From.ID)).QuerySettings().Only(ctx)
 		if err != nil {
 			b.lg.Errorf("error querying user settings: %v", err)
 		}
 
-		text := fmt.Sprintf(settingsText, FrequencyTextDict[string(us.SendingFrequency)], us.UrgentWords, us.BannedWords, us.Language)
+		text := fmt.Sprintf(SettingsMessage[language], FrequencyTextDict[language][string(us.SendingFrequency)], us.UrgentWords, us.BannedWords, us.Language)
 		msg = tgbotapi.NewMessage(m.Chat.ID, text)
-		msg.ReplyMarkup = settingsMainKeyboard
+		msg.ReplyMarkup = settingsMainKeyboard[language]
 		msg.ParseMode = tgbotapi.ModeHTML
 	}
 
@@ -377,7 +429,6 @@ func (b *Bot) RunScheduler() {
 	gocron.Every(5).Minute().Do(b.parseSources)
 
 	// Send posts with urgent words in title
-
 
 	// Start all the pending jobs
 	<-gocron.Start()

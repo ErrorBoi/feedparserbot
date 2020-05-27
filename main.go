@@ -3,13 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 
 	"go.uber.org/zap"
 
 	"github.com/ErrorBoi/feedparserbot/bot"
 	"github.com/ErrorBoi/feedparserbot/db"
+	"github.com/ErrorBoi/feedparserbot/ent"
+	"github.com/ErrorBoi/feedparserbot/ent/globalsettings"
 	"github.com/ErrorBoi/feedparserbot/scrap"
 )
 
@@ -22,27 +23,28 @@ func main() {
 
 	sugar := logger.Sugar()
 
-	token := os.Getenv("TOKEN")
-
-	host := os.Getenv("HOST")
-	port := os.Getenv("PORT")
-	user := os.Getenv("USER")
-	pass := os.Getenv("PASS")
-	dbName := os.Getenv("DBNAME")
-
-	dataSourceName := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", user, pass, host, port, dbName)
-	ytToken := os.Getenv("YTTOKEN")
-	Fpdb, err := db.NewDB(dataSourceName, ytToken)
+	dataSourceName := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", bot.User, bot.Pass, bot.Host, bot.Port, bot.DbName)
+	Fpdb, err := db.NewDB(dataSourceName, bot.YtToken)
 	if err != nil {
 		sugar.Infow("Database connection error",
-			"host", host,
-			"port", port,
-			"user", user,
-			"pass", pass,
-			"dbName", dbName)
+			"host", bot.Host,
+			"port", bot.Port,
+			"user", bot.User,
+			"pass", bot.Pass,
+			"dbName", bot.DbName)
 		sugar.Fatalf("Database connection error: %v", err)
 	}
 	defer Fpdb.Cli.Close()
+
+	// Entity for global settings (id = 1)
+	ctx := context.Background()
+	_, err = Fpdb.Cli.Globalsettings.Query().Where(globalsettings.ID(1)).Only(ctx)
+	if ent.IsNotFound(err) {
+		_, err = Fpdb.Cli.Globalsettings.Create().Save(ctx)
+		if err != nil {
+			sugar.Fatalf("Failed creating global settings: %v", err)
+		}
+	}
 
 	sugar.Info("Successfully connected to database!")
 
@@ -51,7 +53,7 @@ func main() {
 		sugar.Fatalf("failed creating schema resources: %v", err)
 	}
 
-	doScrap, err := strconv.ParseBool(os.Getenv("SCRAP"))
+	doScrap, err := strconv.ParseBool(bot.Scrap)
 	if err != nil {
 		sugar.Errorf("Parse bool error: %v", err)
 	}
@@ -73,20 +75,20 @@ func main() {
 		}
 	}
 
-	Fpbot, err := bot.InitBot(token, Fpdb, sugar)
+	Fpbot, err := bot.InitBot(bot.Token, Fpdb, sugar)
 	if err != nil {
 		sugar.Infow("Bot init error",
-			"botToken", token)
+			"botToken", bot.Token)
 		sugar.Fatalf("Bot init error: %v", err)
 	}
 
-	debugMode, err := strconv.ParseBool(os.Getenv("DEBUG_MODE"))
+	debugMode, err := strconv.ParseBool(bot.DebugMode)
 	if err != nil {
 		sugar.Errorf("Parse bool error: %v", err)
 	}
 	Fpbot.BotAPI.Debug = debugMode
 
-	err = Fpbot.InitUpdates(token)
+	err = Fpbot.InitUpdates(bot.Token)
 	if err != nil {
 		sugar.Errorf("Init Updates error: %v", err)
 	}

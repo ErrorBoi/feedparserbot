@@ -79,11 +79,11 @@ func storeVCHubs(cli *ent.Client, hubs []string) error {
 			lang := e.ChildText("/language")
 			switch lang {
 			case "ru-RU", "RU":
-				lang = "ru"
+				lang = "RU"
 			case "en-EN", "EN":
-				lang = "en"
+				lang = "EN"
 			default:
-				lang = "ru"
+				lang = "RU"
 			}
 
 			_, err = cli.Source.Create().SetURL(link).SetTitle(title).SetLanguage(source.Language(lang)).SetParent(VCSource).Save(context.Background())

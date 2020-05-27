@@ -55,13 +55,13 @@ var (
 // Language defines the type for the language enum field.
 type Language string
 
-// LanguageRu is the default Language.
-const DefaultLanguage = LanguageRu
+// LanguageRU is the default Language.
+const DefaultLanguage = LanguageRU
 
 // Language values.
 const (
-	LanguageRu Language = "ru"
-	LanguageEn Language = "en"
+	LanguageRU Language = "RU"
+	LanguageEN Language = "EN"
 )
 
 func (s Language) String() string {
@@ -71,7 +71,7 @@ func (s Language) String() string {
 // LanguageValidator is a validator for the "l" field enum values. It is called by the builders before save.
 func LanguageValidator(l Language) error {
 	switch l {
-	case LanguageRu, LanguageEn:
+	case LanguageRU, LanguageEN:
 		return nil
 	default:
 		return fmt.Errorf("usersettings: invalid enum value for language field: %q", l)

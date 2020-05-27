@@ -33,6 +33,8 @@ type Post struct {
 	PublishedAt time.Time `json:"published_at,omitempty"`
 	// Description holds the value of the "description" field.
 	Description string `json:"description,omitempty"`
+	// DescriptionTranslations holds the value of the "description_translations" field.
+	DescriptionTranslations schema.Translations `json:"description_translations,omitempty"`
 	// H1 holds the value of the "h1" field.
 	H1 string `json:"h1,omitempty"`
 	// Content holds the value of the "content" field.
@@ -83,6 +85,7 @@ func (*Post) scanValues() []interface{} {
 		&sql.NullString{}, // url
 		&sql.NullTime{},   // published_at
 		&sql.NullString{}, // description
+		&[]byte{},         // description_translations
 		&sql.NullString{}, // h1
 		&sql.NullString{}, // content
 		&sql.NullTime{},   // created_at
@@ -152,33 +155,41 @@ func (po *Post) assignValues(values ...interface{}) error {
 	} else if value.Valid {
 		po.Description = value.String
 	}
-	if value, ok := values[7].(*sql.NullString); !ok {
-		return fmt.Errorf("unexpected type %T for field h1", values[7])
+
+	if value, ok := values[7].(*[]byte); !ok {
+		return fmt.Errorf("unexpected type %T for field description_translations", values[7])
+	} else if value != nil && len(*value) > 0 {
+		if err := json.Unmarshal(*value, &po.DescriptionTranslations); err != nil {
+			return fmt.Errorf("unmarshal field description_translations: %v", err)
+		}
+	}
+	if value, ok := values[8].(*sql.NullString); !ok {
+		return fmt.Errorf("unexpected type %T for field h1", values[8])
 	} else if value.Valid {
 		po.H1 = value.String
 	}
-	if value, ok := values[8].(*sql.NullString); !ok {
-		return fmt.Errorf("unexpected type %T for field content", values[8])
+	if value, ok := values[9].(*sql.NullString); !ok {
+		return fmt.Errorf("unexpected type %T for field content", values[9])
 	} else if value.Valid {
 		po.Content = value.String
 	}
-	if value, ok := values[9].(*sql.NullTime); !ok {
-		return fmt.Errorf("unexpected type %T for field created_at", values[9])
+	if value, ok := values[10].(*sql.NullTime); !ok {
+		return fmt.Errorf("unexpected type %T for field created_at", values[10])
 	} else if value.Valid {
 		po.CreatedAt = value.Time
 	}
-	if value, ok := values[10].(*sql.NullTime); !ok {
-		return fmt.Errorf("unexpected type %T for field updated_at", values[10])
+	if value, ok := values[11].(*sql.NullTime); !ok {
+		return fmt.Errorf("unexpected type %T for field updated_at", values[11])
 	} else if value.Valid {
 		po.UpdatedAt = value.Time
 	}
-	if value, ok := values[11].(*sql.NullInt64); !ok {
-		return fmt.Errorf("unexpected type %T for field updated_by", values[11])
+	if value, ok := values[12].(*sql.NullInt64); !ok {
+		return fmt.Errorf("unexpected type %T for field updated_by", values[12])
 	} else if value.Valid {
 		po.UpdatedBy = new(int)
 		*po.UpdatedBy = int(value.Int64)
 	}
-	values = values[12:]
+	values = values[13:]
 	if len(values) == len(post.ForeignKeys) {
 		if value, ok := values[0].(*sql.NullInt64); !ok {
 			return fmt.Errorf("unexpected type %T for edge-field source_posts", value)
@@ -234,6 +245,8 @@ func (po *Post) String() string {
 	builder.WriteString(po.PublishedAt.Format(time.ANSIC))
 	builder.WriteString(", description=")
 	builder.WriteString(po.Description)
+	builder.WriteString(", description_translations=")
+	builder.WriteString(fmt.Sprintf("%v", po.DescriptionTranslations))
 	builder.WriteString(", h1=")
 	builder.WriteString(po.H1)
 	builder.WriteString(", content=")

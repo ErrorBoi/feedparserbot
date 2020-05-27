@@ -18,7 +18,7 @@ func (UserSettings) Fields() []ent.Field {
 	return []ent.Field{
 		field.Strings("urgent_words").Optional(),
 		field.Strings("banned_words").Optional(),
-		field.Enum("language").Values("ru", "en").Default("ru"),
+		field.Enum("language").Values("RU", "EN").Default("RU"),
 		field.Enum("sending_frequency").Values(
 			"instant", "1h", "4h", "am", "pm",
 			"mon", "tue", "wed", "thu", "fri", "sat", "sun").Default("instant"),

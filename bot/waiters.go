@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -11,7 +12,10 @@ import (
 	"github.com/gocolly/colly"
 
 	"github.com/ErrorBoi/feedparserbot/db"
+	"github.com/ErrorBoi/feedparserbot/ent"
+	"github.com/ErrorBoi/feedparserbot/ent/globalsettings"
 	"github.com/ErrorBoi/feedparserbot/ent/post"
+	"github.com/ErrorBoi/feedparserbot/ent/schema"
 	"github.com/ErrorBoi/feedparserbot/ent/user"
 	"github.com/ErrorBoi/feedparserbot/ent/usersettings"
 	"github.com/ErrorBoi/feedparserbot/utils"
@@ -19,7 +23,7 @@ import (
 
 var sources = []string{
 	"https://vc.ru/rss/all",
-	"https://rb.ru/feeds/all",
+	"https://rb.ru/feeds/all/",
 	"https://www.forbes.ru/newrss.xml",
 	"https://www.fontanka.ru/fontanka.rss",
 }
@@ -43,6 +47,7 @@ func (b *Bot) parseSources() {
 				b.lg.Errorf("Time parse error: %v", err)
 			}
 			if published.After(now) {
+				b.lg.Infof("POST: %+v", item)
 				collector := colly.NewCollector()
 
 				var (
@@ -63,7 +68,7 @@ func (b *Bot) parseSources() {
 							contents = append(contents, strings.TrimSpace(innerEl.Text))
 						})
 					})
-				case "https://rb.ru/feeds/all":
+				case "https://rb.ru/feeds/all/":
 					collector.OnHTML("h1", func(el *colly.HTMLElement) {
 						h1 = strings.TrimSpace(el.Text)
 					})
@@ -113,7 +118,7 @@ func (b *Bot) parseSources() {
 					b.lg.Errorf("Error visiting URL: %v", err)
 				}
 
-				_, err = b.db.StorePost(ctx, db.StorePost{
+				p, err := b.db.StorePost(ctx, db.StorePost{
 					Title:       item.Title,
 					Url:         item.Link,
 					PublishedAt: published,
@@ -124,6 +129,107 @@ func (b *Bot) parseSources() {
 				})
 				if err != nil {
 					b.lg.Errorf("Store Post error: %v", err)
+				}
+
+				ctx := context.Background()
+				pSource, err := p.QuerySource().Only(ctx)
+				if err != nil {
+					b.lg.Errorf("failed querying source from post: %v", err)
+				}
+
+				uu, err := pSource.QueryUsers().
+					Where(
+						user.HasSettingsWith(
+							usersettings.SendingFrequencyNEQ(usersettings.SendingFrequencyInstant),
+						),
+					).All(ctx)
+				for _, u := range uu {
+					us, err := u.QuerySettings().Only(ctx)
+					if err != nil {
+						b.lg.Errorf("failed querying user settings: %v", err)
+					}
+
+					hasUrgentWords := false
+					for _, urgent := range us.UrgentWords {
+						if strings.Contains(item.Title, urgent) {
+							hasUrgentWords = true
+							break
+						}
+					}
+
+					hasBannedWords := false
+					for _, banned := range us.BannedWords {
+						if strings.Contains(item.Title, banned) {
+							hasBannedWords = true
+							break
+						}
+					}
+
+					if hasUrgentWords && !hasBannedWords {
+						pi := utils.PostInfo{
+							SourceTitle: pSource.Title,
+							PostTitle:   p.Title,
+							URL:         p.URL,
+							Description: p.Description,
+						}
+						msg := tgbotapi.NewMessage(int64(u.TgID), utils.FormatPost(pi))
+						msg.ParseMode = tgbotapi.ModeHTML
+						b.BotAPI.Send(msg)
+
+						_, err = us.Update().SetLastSending(time.Now()).Save(ctx)
+						if err != nil {
+							b.lg.Errorf("failed updating user settings: %v", err)
+						}
+					}
+				}
+
+				globalSettings, err := b.db.Cli.Globalsettings.Query().Where(globalsettings.ID(1)).Only(ctx)
+				if err != nil {
+					b.lg.Errorf("failed querying global settings: %v", err)
+				}
+
+				hasClickbaitWords := false
+				for _, clickbait := range globalSettings.ClickbaitWords {
+					if strings.Contains(item.Title, clickbait) {
+						hasClickbaitWords = true
+						break
+					}
+				}
+
+				if hasClickbaitWords {
+					editors, err := b.db.Cli.User.Query().Where(user.RoleIn(user.RoleAdmin, user.RoleEditor)).All(ctx)
+					if err != nil {
+						b.lg.Errorf("failed querying admins and editors: %v", err)
+					}
+
+					for _, editor := range editors {
+						us, err := editor.QuerySettings().Only(ctx)
+						if err != nil {
+							b.lg.Errorf("failed querying user settings: %v", err)
+						}
+
+						language := string(us.Language)
+
+						var (
+							title string
+							description string
+						)
+						switch language {
+						case "RU":
+							title = p.TitleTranslations.RU
+							description = p.DescriptionTranslations.RU
+						case "EN":
+							title = p.TitleTranslations.EN
+							description = p.DescriptionTranslations.EN
+						}
+
+						text := fmt.Sprintf(ClickbaitFormatMessage[language], p.ID, p.URL, title, description)
+
+
+						msg := tgbotapi.NewMessage(int64(editor.TgID), text)
+						msg.ParseMode = tgbotapi.ModeHTML
+						b.BotAPI.Send(msg)
+					}
 				}
 			}
 		}
@@ -167,34 +273,7 @@ func (b *Bot) sendPostsQuick() {
 		}
 
 		if time.Now().After(settings.LastSending.Add(frequency)) {
-			posts, err := u.QuerySources().QueryPosts().Where(post.PublishedAtGT(settings.LastSending)).All(ctx)
-			if err != nil {
-				b.lg.Errorf("failed querying posts: %v", err)
-			}
-
-			for _, p := range posts {
-				src, err := p.QuerySource().Only(ctx)
-				if err != nil {
-					b.lg.Errorf("failed querying source from post: %v", err)
-				}
-
-				pi := utils.PostInfo{
-					SourceTitle: src.Title,
-					PostTitle:   p.Title,
-					URL:         p.URL,
-					Description: p.Description,
-				}
-				msg := tgbotapi.NewMessage(int64(u.TgID), utils.FormatPost(pi))
-				msg.ParseMode = tgbotapi.ModeHTML
-				b.BotAPI.Send(msg)
-			}
-
-			if len(posts) > 0 {
-				_, err = settings.Update().SetLastSending(time.Now()).Save(ctx)
-				if err != nil {
-					b.lg.Errorf("failed updating user settings: %v", err)
-				}
-			}
+			b.sendPost(u, settings)
 		}
 	}
 }
@@ -222,34 +301,7 @@ func (b *Bot) sendPostsAM() {
 		}
 
 		if time.Now().After(settings.LastSending) {
-			posts, err := u.QuerySources().QueryPosts().Where(post.PublishedAtGT(settings.LastSending)).All(ctx)
-			if err != nil {
-				b.lg.Errorf("failed querying posts: %v", err)
-			}
-
-			for _, p := range posts {
-				src, err := p.QuerySource().Only(ctx)
-				if err != nil {
-					b.lg.Errorf("failed querying source from post: %v", err)
-				}
-
-				pi := utils.PostInfo{
-					SourceTitle: src.Title,
-					PostTitle:   p.Title,
-					URL:         p.URL,
-					Description: p.Description,
-				}
-				msg := tgbotapi.NewMessage(int64(u.TgID), utils.FormatPost(pi))
-				msg.ParseMode = tgbotapi.ModeHTML
-				b.BotAPI.Send(msg)
-			}
-
-			if len(posts) > 0 {
-				_, err = settings.Update().SetLastSending(time.Now()).Save(ctx)
-				if err != nil {
-					b.lg.Errorf("failed updating user settings: %v", err)
-				}
-			}
+			b.sendPost(u, settings)
 		}
 	}
 }
@@ -277,34 +329,7 @@ func (b *Bot) sendPostsPM() {
 		}
 
 		if time.Now().After(settings.LastSending) {
-			posts, err := u.QuerySources().QueryPosts().Where(post.PublishedAtGT(settings.LastSending)).All(ctx)
-			if err != nil {
-				b.lg.Errorf("failed querying posts: %v", err)
-			}
-
-			for _, p := range posts {
-				src, err := p.QuerySource().Only(ctx)
-				if err != nil {
-					b.lg.Errorf("failed querying source from post: %v", err)
-				}
-
-				pi := utils.PostInfo{
-					SourceTitle: src.Title,
-					PostTitle:   p.Title,
-					URL:         p.URL,
-					Description: p.Description,
-				}
-				msg := tgbotapi.NewMessage(int64(u.TgID), utils.FormatPost(pi))
-				msg.ParseMode = tgbotapi.ModeHTML
-				b.BotAPI.Send(msg)
-			}
-
-			if len(posts) > 0 {
-				_, err = settings.Update().SetLastSending(time.Now()).Save(ctx)
-				if err != nil {
-					b.lg.Errorf("failed updating user settings: %v", err)
-				}
-			}
+			b.sendPost(u, settings)
 		}
 	}
 }
@@ -359,34 +384,91 @@ func (b *Bot) sendPostsDaily() {
 
 		now := time.Now()
 		if now.After(settings.LastSending) && now.Weekday() == weekday {
-			posts, err := u.QuerySources().QueryPosts().Where(post.PublishedAtGT(settings.LastSending)).All(ctx)
+			b.sendPost(u, settings)
+		}
+	}
+}
+
+func (b *Bot) sendPost(u *ent.User, us *ent.UserSettings) {
+	ctx := context.Background()
+
+	posts, err := u.QuerySources().QueryPosts().Where(post.UpdatedAtGT(us.LastSending)).All(ctx)
+	if err != nil {
+		b.lg.Errorf("failed querying posts: %v", err)
+	}
+
+	sentCounter := 0
+	for _, p := range posts {
+		hasBannedWords := false
+		for _, banned := range us.BannedWords {
+			if strings.Contains(p.Title, banned) {
+				hasBannedWords = true
+				break
+			}
+		}
+
+		if !hasBannedWords {
+			gs, err := b.db.Cli.Globalsettings.Query().Where(globalsettings.ID(1)).Only(ctx)
 			if err != nil {
-				b.lg.Errorf("failed querying posts: %v", err)
+				b.lg.Errorf("failed querying global settings: %v", err)
 			}
 
-			for _, p := range posts {
+
+			hasClickbaitWords := false
+			for _, clickbait := range gs.ClickbaitWords {
+				if strings.Contains(p.Title, clickbait) {
+					hasClickbaitWords = true
+					break
+				}
+			}
+
+			if !hasClickbaitWords || p.Subject != nil {
 				src, err := p.QuerySource().Only(ctx)
 				if err != nil {
 					b.lg.Errorf("failed querying source from post: %v", err)
 				}
 
+				var titleTranslations schema.Translations
+				if hasClickbaitWords {
+					titleTranslations = p.SubjectTranslations
+				} else {
+					titleTranslations = p.TitleTranslations
+				}
+
+				var (
+					postTitle string
+					description string
+				)
+				switch us.Language {
+				case usersettings.LanguageEN:
+					postTitle = titleTranslations.EN
+					description = p.DescriptionTranslations.EN
+				case usersettings.LanguageRU:
+					postTitle = titleTranslations.RU
+					description = p.DescriptionTranslations.RU
+				}
+
+
+
 				pi := utils.PostInfo{
 					SourceTitle: src.Title,
-					PostTitle:   p.Title,
+					PostTitle:   postTitle,
 					URL:         p.URL,
-					Description: p.Description,
+					Description: description,
 				}
 				msg := tgbotapi.NewMessage(int64(u.TgID), utils.FormatPost(pi))
 				msg.ParseMode = tgbotapi.ModeHTML
 				b.BotAPI.Send(msg)
-			}
 
-			if len(posts) > 0 {
-				_, err = settings.Update().SetLastSending(time.Now()).Save(ctx)
-				if err != nil {
-					b.lg.Errorf("failed updating user settings: %v", err)
-				}
+				sentCounter++
 			}
+		}
+	}
+
+	if sentCounter > 0 {
+		_, err = us.Update().SetLastSending(time.Now()).Save(ctx)
+		if err != nil {
+			b.lg.Errorf("failed updating user settings: %v", err)
 		}
 	}
 }

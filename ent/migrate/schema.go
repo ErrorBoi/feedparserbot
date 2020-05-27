@@ -30,6 +30,7 @@ var (
 		{Name: "url", Type: field.TypeString, Unique: true},
 		{Name: "published_at", Type: field.TypeTime},
 		{Name: "description", Type: field.TypeString},
+		{Name: "description_translations", Type: field.TypeJSON, Nullable: true},
 		{Name: "h1", Type: field.TypeString},
 		{Name: "content", Type: field.TypeString, Size: 2147483647},
 		{Name: "created_at", Type: field.TypeTime},
@@ -45,7 +46,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:  "posts_sources_posts",
-				Columns: []*schema.Column{PostsColumns[13]},
+				Columns: []*schema.Column{PostsColumns[14]},
 
 				RefColumns: []*schema.Column{SourcesColumns[0]},
 				OnDelete:   schema.SetNull,
@@ -57,7 +58,7 @@ var (
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "url", Type: field.TypeString, Unique: true},
 		{Name: "title", Type: field.TypeString},
-		{Name: "language", Type: field.TypeEnum, Enums: []string{"ru", "en"}, Default: "ru"},
+		{Name: "language", Type: field.TypeEnum, Enums: []string{"RU", "EN"}, Default: "RU"},
 		{Name: "source_children", Type: field.TypeInt, Nullable: true},
 	}
 	// SourcesTable holds the schema information for the "sources" table.
@@ -95,7 +96,7 @@ var (
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "urgent_words", Type: field.TypeJSON, Nullable: true},
 		{Name: "banned_words", Type: field.TypeJSON, Nullable: true},
-		{Name: "language", Type: field.TypeEnum, Enums: []string{"ru", "en"}, Default: "ru"},
+		{Name: "language", Type: field.TypeEnum, Enums: []string{"RU", "EN"}, Default: "RU"},
 		{Name: "sending_frequency", Type: field.TypeEnum, Enums: []string{"instant", "1h", "4h", "am", "pm", "mon", "tue", "wed", "thu", "fri", "sat", "sun"}, Default: "instant"},
 		{Name: "last_sending", Type: field.TypeTime},
 		{Name: "user_settings", Type: field.TypeInt, Unique: true, Nullable: true},

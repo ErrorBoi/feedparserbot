@@ -711,6 +711,20 @@ func DescriptionContainsFold(v string) predicate.Post {
 	})
 }
 
+// DescriptionTranslationsIsNil applies the IsNil predicate on the "description_translations" field.
+func DescriptionTranslationsIsNil() predicate.Post {
+	return predicate.Post(func(s *sql.Selector) {
+		s.Where(sql.IsNull(s.C(FieldDescriptionTranslations)))
+	})
+}
+
+// DescriptionTranslationsNotNil applies the NotNil predicate on the "description_translations" field.
+func DescriptionTranslationsNotNil() predicate.Post {
+	return predicate.Post(func(s *sql.Selector) {
+		s.Where(sql.NotNull(s.C(FieldDescriptionTranslations)))
+	})
+}
+
 // H1EQ applies the EQ predicate on the "h1" field.
 func H1EQ(v string) predicate.Post {
 	return predicate.Post(func(s *sql.Selector) {

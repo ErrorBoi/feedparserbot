@@ -28,6 +28,7 @@ func (Post) Fields() []ent.Field {
 		field.String("url").Unique(),
 		field.Time("published_at"),
 		field.String("description"),
+		field.JSON("description_translations", Translations{}).Optional(),
 		field.String("h1"),
 		field.Text("content"),
 		field.Time("created_at").Default(time.Now),

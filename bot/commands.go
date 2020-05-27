@@ -2,17 +2,19 @@ package bot
 
 import (
 	"context"
+	"strconv"
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 
 	"github.com/ErrorBoi/feedparserbot/ent"
+	"github.com/ErrorBoi/feedparserbot/ent/globalsettings"
 	"github.com/ErrorBoi/feedparserbot/ent/source"
 	"github.com/ErrorBoi/feedparserbot/ent/user"
 	"github.com/ErrorBoi/feedparserbot/ent/usersettings"
 )
 
-func (b *Bot) start(m *tgbotapi.Message) {
+func (b *Bot) start(m *tgbotapi.Message, language string) {
 	ctx := context.Background()
 
 	_, err := b.db.Cli.User.Query().Where(user.TgID(m.From.ID)).Only(ctx)
@@ -50,25 +52,41 @@ func (b *Bot) start(m *tgbotapi.Message) {
 		}
 	}
 
-	msg := tgbotapi.NewMessage(m.Chat.ID, startText)
-	msg.ReplyMarkup = mainKeyboard
+	msg := tgbotapi.NewMessage(m.Chat.ID, startText[language])
+	msg.ReplyMarkup = mainKeyboard[language]
 	msg.ParseMode = tgbotapi.ModeHTML
 	b.BotAPI.Send(msg)
 }
 
-func (b *Bot) help(m *tgbotapi.Message) {
-	msg := tgbotapi.NewMessage(m.Chat.ID, helpText)
+func (b *Bot) help(m *tgbotapi.Message, language string) {
+	ctx := context.Background()
+	u, err := b.db.Cli.User.Query().Where(user.TgID(m.From.ID)).Only(ctx)
+	if err != nil {
+		b.lg.Errorf("failed querying user: %v", err)
+	}
+
+	var text string
+	switch u.Role {
+	case user.RoleUser:
+		text = helpText[language]
+	case user.RoleEditor:
+		text = helpText[language] + helpEditorText[language]
+	case user.RoleAdmin:
+		text = helpText[language] + helpEditorText[language] + helpAdminText[language]
+	}
+
+	msg := tgbotapi.NewMessage(m.Chat.ID, text)
 	msg.ParseMode = tgbotapi.ModeHTML
 	b.BotAPI.Send(msg)
 }
 
-func (b *Bot) add(m *tgbotapi.Message) {
+func (b *Bot) add(m *tgbotapi.Message, language string) {
 	args := m.CommandArguments()
 	args = strings.TrimSpace(args)
 
 	var msg string
 	if len(args) == 0 {
-		msg = "После команды нужно указать ссылку на источник. Например /add https://vc.ru/marketing"
+		msg = EmptyAddArgsMessage[language]
 	} else {
 		switch {
 		case strings.HasPrefix(args, "https://vc.ru/"):
@@ -78,14 +96,14 @@ func (b *Bot) add(m *tgbotapi.Message) {
 			if err != nil {
 				b.lg.Errorf("failed querying source: %v", err)
 				if ent.IsNotFound(err) {
-					msg = "Раздел VC.ru с таким названием не найден"
+					msg = VCHubNotFoundMessage[language]
 				}
 			} else {
 				_, err = b.db.Cli.User.Update().AddSources(s).Save(ctx)
 				if err != nil {
 					b.lg.Errorf("failed updating user: %v", err)
 				}
-				msg = "Подписка оформлена"
+				msg = SubscriptionCompletedMessage[language]
 			}
 		case strings.HasPrefix(args, "http://rusbase.com/feeds/tag/"):
 			ctx := context.Background()
@@ -93,7 +111,7 @@ func (b *Bot) add(m *tgbotapi.Message) {
 			if err != nil {
 				b.lg.Errorf("failed querying source: %v", err)
 				if ent.IsNotFound(err) {
-					msg = "Раздел RB.ru с таким названием не найден"
+					msg = RBHubNotFoundMessage[language]
 				}
 			} else {
 				parent, err := s.QueryParent().Only(ctx)
@@ -108,7 +126,7 @@ func (b *Bot) add(m *tgbotapi.Message) {
 				if err != nil {
 					b.lg.Errorf("failed updating user: %v", err)
 				}
-				msg = "Подписка оформлена"
+				msg = SubscriptionCompletedMessage[language]
 			}
 		default:
 			ctx := context.Background()
@@ -116,14 +134,14 @@ func (b *Bot) add(m *tgbotapi.Message) {
 			if err != nil {
 				b.lg.Errorf("failed querying source: %v", err)
 				if ent.IsNotFound(err) {
-					msg = "Источник с таким названием не найден"
+					msg = SourceNotFoundMessage[language]
 				}
 			} else {
 				_, err = b.db.Cli.User.Update().AddSources(s).Save(ctx)
 				if err != nil {
 					b.lg.Errorf("failed updating user: %v", err)
 				}
-				msg = "Подписка оформлена"
+				msg = SubscriptionCompletedMessage[language]
 			}
 		}
 	}
@@ -132,14 +150,13 @@ func (b *Bot) add(m *tgbotapi.Message) {
 	b.BotAPI.Send(message)
 }
 
-func (b *Bot) urgent(m *tgbotapi.Message) {
+func (b *Bot) urgent(m *tgbotapi.Message, language string) {
 	args := m.CommandArguments()
 	args = strings.TrimSpace(args)
 
 	var msg string
 	if len(args) == 0 {
-		msg = "После команды нужно указать список слов через запятую. Например:\n" +
-			"/urgent ЛО,Санкт-Петербург,Доллар"
+		msg = EmptyUrgentArgsMessage[language]
 	} else {
 		arr := strings.Split(args, ",")
 		ctx := context.Background()
@@ -151,20 +168,20 @@ func (b *Bot) urgent(m *tgbotapi.Message) {
 		if err != nil {
 			b.lg.Fatalf("failed updating user settings: %v", err)
 		}
-		msg = "\"Срочные\" слова записаны!"
+		msg = UrgentWordsSuccessMessage[language]
 	}
 	message := tgbotapi.NewMessage(m.Chat.ID, msg)
 	message.ParseMode = tgbotapi.ModeHTML
 	b.BotAPI.Send(message)
 }
 
-func (b *Bot) bannedWords(m *tgbotapi.Message) {
+func (b *Bot) bannedWords(m *tgbotapi.Message, language string) {
 	args := m.CommandArguments()
 	args = strings.TrimSpace(args)
 
 	var msg string
 	if len(args) == 0 {
-		msg = "После команды нужно указать список слов через запятую. Например:\n/banned Коронавирус,Поправки"
+		msg = EmptyBannedArgsMessage[language]
 	} else {
 		arr := strings.Split(args, ",")
 		ctx := context.Background()
@@ -176,9 +193,163 @@ func (b *Bot) bannedWords(m *tgbotapi.Message) {
 		if err != nil {
 			b.lg.Fatalf("failed updating user settings: %v", err)
 		}
-		msg = "\"Чёрный список\" обновлён!"
+		msg = BannedWordsSuccessMessage[language]
 	}
 	message := tgbotapi.NewMessage(m.Chat.ID, msg)
 	message.ParseMode = tgbotapi.ModeHTML
 	b.BotAPI.Send(message)
+}
+
+func (b *Bot) super(m *tgbotapi.Message, language string) {
+	args := m.CommandArguments()
+	args = strings.TrimSpace(args)
+	var msg string
+	if len(args) == 0 {
+		msg = EmptySuperArgsMessage[language]
+	} else {
+		if args == Token {
+			ctx := context.Background()
+			_, err := b.db.Cli.User.Update().Where(user.TgID(m.From.ID)).SetRole(user.RoleAdmin).Save(ctx)
+			if err != nil {
+				b.lg.Fatalf("failed updating user: %v", err)
+			}
+			msg = SuperSuccessMessage[language]
+		} else {
+			msg = SuperValidationErrorMessage[language]
+		}
+	}
+	message := tgbotapi.NewMessage(m.Chat.ID, msg)
+	message.ParseMode = tgbotapi.ModeHTML
+	b.BotAPI.Send(message)
+}
+
+func (b *Bot) setEditor(m *tgbotapi.Message, language string) {
+	ctx := context.Background()
+	u, err := b.db.Cli.User.Query().Where(user.TgID(m.From.ID)).Only(ctx)
+	if err != nil {
+		b.lg.Fatalf("failed querying user: %v", err)
+	}
+
+	if u.Role == user.RoleAdmin || u.Role == user.RoleEditor {
+		args := m.CommandArguments()
+		args = strings.TrimSpace(args)
+		var msg string
+		if len(args) == 0 {
+			msg = AddEditorInvalidMessage[language]
+		} else {
+			tgID, err := strconv.Atoi(args)
+			if err != nil {
+				b.lg.Fatalf("failed converting str to int: %v", err)
+			}
+			n, err := b.db.Cli.User.Update().Where(user.TgID(tgID)).SetRole(user.RoleEditor).Save(ctx)
+			if err != nil {
+				b.lg.Fatalf("failed updating user: %v", err)
+			}
+			if n == 0 {
+				msg = UserNotFoundMessage[language]
+			} else {
+				msg = AddEditorSuccessMessage[language]
+			}
+		}
+		message := tgbotapi.NewMessage(m.Chat.ID, msg)
+		message.ParseMode = tgbotapi.ModeHTML
+		b.BotAPI.Send(message)
+	}
+}
+
+func (b *Bot) removeEditor(m *tgbotapi.Message, language string) {
+	ctx := context.Background()
+	u, err := b.db.Cli.User.Query().Where(user.TgID(m.From.ID)).Only(ctx)
+	if err != nil {
+		b.lg.Fatalf("failed querying user: %v", err)
+	}
+
+	if u.Role == user.RoleAdmin || u.Role == user.RoleEditor {
+		args := m.CommandArguments()
+		args = strings.TrimSpace(args)
+		var msg string
+		if len(args) == 0 {
+			msg = RemoveEditorInvalidMessage[language]
+		} else {
+			tgID, err := strconv.Atoi(args)
+			if err != nil {
+				b.lg.Fatalf("failed converting str to int: %v", err)
+			}
+			n, err := b.db.Cli.User.Update().Where(user.TgID(tgID)).SetRole(user.RoleUser).Save(ctx)
+			if err != nil {
+				b.lg.Fatalf("failed updating user: %v", err)
+			}
+			if n == 0 {
+				msg = UserNotFoundMessage[language]
+			} else {
+				msg = RemoveEditorSuccessMessage[language]
+			}
+		}
+		message := tgbotapi.NewMessage(m.Chat.ID, msg)
+		message.ParseMode = tgbotapi.ModeHTML
+		b.BotAPI.Send(message)
+	}
+}
+
+func (b *Bot) setClickbaitWords(m *tgbotapi.Message, language string) {
+	ctx := context.Background()
+	u, err := b.db.Cli.User.Query().Where(user.TgID(m.From.ID)).Only(ctx)
+	if err != nil {
+		b.lg.Fatalf("failed querying user: %v", err)
+	}
+
+	if u.Role == user.RoleAdmin || u.Role == user.RoleEditor {
+		args := m.CommandArguments()
+		args = strings.TrimSpace(args)
+		var msg string
+		if len(args) == 0 {
+			msg = ClickbaitEmptyArgsMessage[language]
+		} else {
+			arr := strings.Split(args, ",")
+
+			_, err = b.db.Cli.Globalsettings.Update().Where(globalsettings.ID(1)).SetClickbaitWords(arr).Save(ctx)
+			if err != nil {
+				b.lg.Fatalf("failed updating global settings: %v", err)
+			}
+			msg = ClickbaitSuccessMessage[language]
+		}
+		message := tgbotapi.NewMessage(m.Chat.ID, msg)
+		message.ParseMode = tgbotapi.ModeHTML
+		b.BotAPI.Send(message)
+	}
+}
+
+func (b *Bot) rewritePost(m *tgbotapi.Message, language string) {
+	ctx := context.Background()
+	u, err := b.db.Cli.User.Query().Where(user.TgID(m.From.ID)).Only(ctx)
+	if err != nil {
+		b.lg.Fatalf("failed querying user: %v", err)
+	}
+
+	if u.Role == user.RoleAdmin || u.Role == user.RoleEditor {
+		args := m.CommandArguments()
+		args = strings.TrimSpace(args)
+		var msg string
+		if len(args) < 2 {
+			msg = RewriteEmptyArgsMessage[language]
+		} else {
+			arr := strings.Split(args, " ")
+			postID, err := strconv.Atoi(arr[0])
+			if err != nil {
+				b.lg.Fatalf("failed converting str to int: %v", err)
+			}
+			subject := strings.Join(arr[1:], " ")
+
+			err = b.db.RewritePost(ctx, postID, subject, m.From.ID)
+			if err != nil {
+				b.lg.Fatalf("failed rewriting post: %v", err)
+			}
+
+			msg = RewriteSuccessMessage[language]
+		}
+
+		message := tgbotapi.NewMessage(m.Chat.ID, msg)
+		message.ParseMode = tgbotapi.ModeHTML
+		b.BotAPI.Send(message)
+	}
 }
